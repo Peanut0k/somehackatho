@@ -9,6 +9,7 @@ A small LibGDX prototype with an empty grassy hub and a chessboard arena. Walk t
 - Each valid arena action takes one turn. One black piece moves after each player action.
 - A/D rotates the pawn and also spends a turn.
 - The arena highlights the predicted enemy destination on the board. A threatened capture is delayed for one player action so you can move off the highlighted square.
+- You have two lives. If you stay on a threatened square through the response turn, the enemy captures that square and you respawn on the nearest safe square; losing both lives returns you to the main world.
 
 ## Maps
 

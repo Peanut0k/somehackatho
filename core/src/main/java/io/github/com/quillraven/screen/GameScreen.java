@@ -201,7 +201,7 @@ public final class GameScreen extends ScreenAdapter {
             changeLevel(OPEN_WORLD_LEVEL);
             viewModel.setGameMessage(victory
                 ? "Arena clear. Find the portal to play again."
-                : "Your pawn was captured. Try the arena again.");
+                : "You lost both lives and returned to the main world.");
         } finally {
             transitionPending = false;
         }

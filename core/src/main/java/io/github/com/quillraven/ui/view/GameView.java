@@ -10,6 +10,7 @@ public final class GameView extends View<GameViewModel> {
     private final InfernalUi infernalUi;
     private Label messageLabel;
     private Label predictionLabel;
+    private Label livesLabel;
 
     public GameView(Stage stage, Skin skin, GameViewModel viewModel, InfernalUi infernalUi) {
         super(stage, skin, viewModel);
@@ -21,6 +22,7 @@ public final class GameView extends View<GameViewModel> {
     protected void setupPropertyChanges() {
         viewModel.onPropertyChange(GameViewModel.GAME_MESSAGE, String.class, messageLabel::setText);
         viewModel.onPropertyChange(GameViewModel.ENEMY_PREDICTION, String.class, predictionLabel::setText);
+        viewModel.onPropertyChange(GameViewModel.LIVES, Integer.class, lives -> livesLabel.setText("Lives: " + lives));
     }
 
     @Override
@@ -46,6 +48,11 @@ public final class GameView extends View<GameViewModel> {
         predictionLabel.setFontScale(0.2f);
         predictionLabel.setColor(InfernalUi.GOLD);
         panel.add(predictionLabel).left().padTop(1f).row();
+
+        livesLabel = new Label("Lives: " + viewModel.getLives(), skin, "small");
+        livesLabel.setFontScale(0.2f);
+        livesLabel.setColor(InfernalUi.PALE);
+        panel.add(livesLabel).left().padTop(1f).row();
 
         Label controls = new Label("ARENA: A/D TURN, W/S MOVE\nQ/E CAPTURE DIAGONALLY", skin, "small");
         controls.setFontScale(0.2f);

@@ -48,8 +48,10 @@ public final class ChessPieceSystem extends EntitySystem {
     private float boardBottom;
     private int nextEnemyTurn;
     private boolean finished;
+    private boolean lostLifeThisTurn;
+    private int lives = 2;
     private Entity predictionMarker;
-    private Entity pendingAttacker;
+    private boolean pendingThreat;
     private int pendingCaptureColumn;
     private int pendingCaptureRow;
 
@@ -71,18 +73,22 @@ public final class ChessPieceSystem extends EntitySystem {
 
     public void setMap(LdtkMap map) {
         clearPredictionMarker();
-        pendingAttacker = null;
+        pendingThreat = false;
         this.map = map;
         boardLeft = (map.getWidth() - BOARD_SIZE * CELL_SIZE) * 0.5f;
         boardBottom = (map.getHeight() - BOARD_SIZE * CELL_SIZE) * 0.5f;
         nextEnemyTurn = 0;
         finished = false;
+        lostLifeThisTurn = false;
+        lives = 2;
+        viewModel.setLives(lives);
         viewModel.setGameMessage("Capture the black king.");
         viewModel.setEnemyPrediction("Enemy move: preparing board");
     }
 
     public void initializeBoard() {
-        for (Entity piece : pieces) {
+        for (int i = 0; i < pieces.size(); i++) {
+            Entity piece = pieces.get(i);
             if (ChessPiece.MAPPER.get(piece).getType() == ChessPiece.Type.KING) {
                 updatePrediction();
                 return;
@@ -101,7 +107,9 @@ public final class ChessPieceSystem extends EntitySystem {
             facing.setDirection(rotate(direction, action == Command.RIGHT));
             takeEnemyTurn(player, null);
             if (!finished) {
-                viewModel.setGameMessage("Facing " + facing.getDirection().name().toLowerCase() + ".");
+                if (!lostLifeThisTurn) {
+                    viewModel.setGameMessage("Facing " + facing.getDirection().name().toLowerCase() + ".");
+                }
                 updatePrediction();
             }
             return true;
@@ -148,27 +156,39 @@ public final class ChessPieceSystem extends EntitySystem {
         if (capturedPiece == null) moveEntity(player, nextColumn, nextRow);
         takeEnemyTurn(player, capturedPiece);
         if (!finished) {
-            viewModel.setGameMessage("Your turn.");
+            if (!lostLifeThisTurn) viewModel.setGameMessage("Your turn.");
             updatePrediction();
         }
         return true;
     }
 
     private void takeEnemyTurn(Entity player, Entity capturedPiece) {
-        if (capturedPiece == pendingAttacker) pendingAttacker = null;
-        if (pendingAttacker != null) {
+        lostLifeThisTurn = false;
+        if (pendingThreat) {
             Vector2 playerPosition = entityCenter(player);
             int playerColumn = cell(playerPosition.x, boardLeft);
             int playerRow = cell(playerPosition.y, boardBottom);
-            if (isInEngine(pendingAttacker)
-                && playerColumn == pendingCaptureColumn
-                && playerRow == pendingCaptureRow) {
-                moveEntity(pendingAttacker, playerColumn, playerRow);
-                viewModel.setGameMessage("A black piece captured you.");
-                finish(false);
+            Entity attacker = playerColumn == pendingCaptureColumn && playerRow == pendingCaptureRow
+                ? findThreateningPiece(playerColumn, playerRow, capturedPiece)
+                : null;
+            if (attacker != null) {
+                lives--;
+                viewModel.setLives(lives);
+                lostLifeThisTurn = true;
+                moveEntity(attacker, playerColumn, playerRow);
+                if (lives == 0) {
+                    viewModel.setGameMessage("You lost both lives. Game over.");
+                    finish(false);
+                    return;
+                }
+                Square respawn = findNearestSafeSquare(playerColumn, playerRow);
+                if (respawn == null) respawn = findNearestEmptySquare(playerColumn, playerRow);
+                if (respawn != null) moveEntity(player, respawn.column, respawn.row);
+                viewModel.setGameMessage("Captured! Respawned safely. " + lives + " life remaining.");
+                pendingThreat = false;
                 return;
             }
-            pendingAttacker = null;
+            pendingThreat = false;
         }
 
         PlannedMove plannedMove = findEnemyMove(player, capturedPiece);
@@ -180,7 +200,7 @@ public final class ChessPieceSystem extends EntitySystem {
         nextEnemyTurn = (plannedMove.pieceIndex + 1) % pieces.size();
         if (plannedMove.destination.column == plannedMove.playerColumn
             && plannedMove.destination.row == plannedMove.playerRow) {
-            pendingAttacker = plannedMove.piece;
+            pendingThreat = true;
             pendingCaptureColumn = plannedMove.playerColumn;
             pendingCaptureRow = plannedMove.playerRow;
             viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
@@ -308,10 +328,9 @@ public final class ChessPieceSystem extends EntitySystem {
 
     private void updatePrediction() {
         if (finished || players == null || players.size() == 0) return;
-        if (pendingAttacker != null) {
+        if (pendingThreat) {
             updatePredictionMarker(pendingCaptureColumn, pendingCaptureRow, true);
-            String pieceName = ChessPiece.MAPPER.get(pendingAttacker).getType().name().toLowerCase();
-            viewModel.setEnemyPrediction("Danger: " + pieceName + " threatens your square!");
+            viewModel.setEnemyPrediction("Danger: enemy threatens your square!");
             viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
             return;
         }
@@ -361,15 +380,46 @@ public final class ChessPieceSystem extends EntitySystem {
         predictionMarker = null;
     }
 
-    private boolean isInEngine(Entity entity) {
-        for (Entity piece : pieces) {
-            if (piece == entity) return true;
+    private Entity findThreateningPiece(int column, int row, Entity capturedPiece) {
+        for (int i = 0; i < pieces.size(); i++) {
+            Entity piece = pieces.get(i);
+            if (piece == capturedPiece) continue;
+            Vector2 position = entityCenter(piece);
+            int pieceColumn = cell(position.x, boardLeft);
+            int pieceRow = cell(position.y, boardBottom);
+            List<Square> moves = legalMoves(piece, pieceColumn, pieceRow, column, row);
+            for (Square move : moves) {
+                if (move.column == column && move.row == row) return piece;
+            }
         }
-        return false;
+        return null;
+    }
+
+    private Square findNearestSafeSquare(int originColumn, int originRow) {
+        return findNearestSquare(originColumn, originRow, true);
+    }
+
+    private Square findNearestEmptySquare(int originColumn, int originRow) {
+        return findNearestSquare(originColumn, originRow, false);
+    }
+
+    private Square findNearestSquare(int originColumn, int originRow, boolean requireSafe) {
+        for (int distance = 0; distance < BOARD_SIZE * 2; distance++) {
+            for (int row = 0; row < BOARD_SIZE; row++) {
+                for (int column = 0; column < BOARD_SIZE; column++) {
+                    if (Math.abs(column - originColumn) + Math.abs(row - originRow) != distance) continue;
+                    if (pieceAt(column, row) != null) continue;
+                    if (requireSafe && findThreateningPiece(column, row, null) != null) continue;
+                    return new Square(column, row);
+                }
+            }
+        }
+        return null;
     }
 
     private Entity pieceAt(int column, int row) {
-        for (Entity piece : pieces) {
+        for (int i = 0; i < pieces.size(); i++) {
+            Entity piece = pieces.get(i);
             Vector2 position = entityCenter(piece);
             if (cell(position.x, boardLeft) == column && cell(position.y, boardBottom) == row) return piece;
         }

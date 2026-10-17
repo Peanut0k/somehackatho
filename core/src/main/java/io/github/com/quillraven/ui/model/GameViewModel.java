@@ -5,9 +5,11 @@ import io.github.com.quillraven.GdxGame;
 public final class GameViewModel extends ViewModel {
     public static final String GAME_MESSAGE = "gameMessage";
     public static final String ENEMY_PREDICTION = "enemyPrediction";
+    public static final String LIVES = "lives";
 
     private String gameMessage = "Explore and find the pawn arena.";
     private String enemyPrediction = "Enemy move: enter the arena";
+    private int lives = 2;
 
     public GameViewModel(GdxGame game) {
         super(game);
@@ -31,5 +33,15 @@ public final class GameViewModel extends ViewModel {
 
     public String getEnemyPrediction() {
         return enemyPrediction;
+    }
+
+    public void setLives(int lives) {
+        if (this.lives == lives) return;
+        propertyChangeSupport.firePropertyChange(LIVES, this.lives, lives);
+        this.lives = lives;
+    }
+
+    public int getLives() {
+        return lives;
     }
 }
