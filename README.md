@@ -10,6 +10,8 @@ A small LibGDX prototype with an empty grassy hub and a chessboard arena. Walk t
 - A/D rotates the pawn and also spends a turn.
 - The arena highlights the predicted enemy destination on the board. A threatened capture is delayed for one player action so you can move off the highlighted square.
 - You have two lives. If you stay on a threatened square through the response turn, the enemy captures that square and you respawn on the nearest safe square; losing both lives returns you to the main world.
+- Enemy move selection is powered by the local `chess-engine/` Java module, with legal chess moves and an alpha-beta search.
+- The predicted source and destination squares are highlighted before your move; the chosen engine move is also printed in the console and is executed after your action.
 
 ## Maps
 

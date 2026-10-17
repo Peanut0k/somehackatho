@@ -5,10 +5,17 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
+import io.github.com.quillraven.chessengine.ChessEngine;
+import io.github.com.quillraven.chessengine.Move;
+import io.github.com.quillraven.chessengine.Piece;
+import io.github.com.quillraven.chessengine.PieceType;
+import io.github.com.quillraven.chessengine.Position;
+import io.github.com.quillraven.chessengine.Side;
 import io.github.com.quillraven.component.ChessPiece;
 import io.github.com.quillraven.component.Facing;
 import io.github.com.quillraven.component.Facing.FacingDirection;
@@ -20,25 +27,16 @@ import io.github.com.quillraven.input.Command;
 import io.github.com.quillraven.ldtk.LdtkMap;
 import io.github.com.quillraven.ui.model.GameViewModel;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 
 public final class ChessPieceSystem extends EntitySystem {
     private static final int BOARD_SIZE = 8;
     private static final float CELL_SIZE = 16f;
-    private static final int[][] ROOK_DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    private static final int[][] BISHOP_DIRECTIONS = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
-    private static final int[][] QUEEN_DIRECTIONS = {
-        {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
-    };
-    private static final int[][] KNIGHT_MOVES = {
-        {1, 2}, {2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}
-    };
 
     private final GameViewModel viewModel;
     private final TextureRegion predictionRegion;
     private final Consumer<Boolean> onCombatFinished;
+    private final ChessEngine enemyEngine = new ChessEngine();
     private final Vector2 target = new Vector2();
     private final Vector2 delta = new Vector2();
     private ImmutableArray<Entity> pieces;
@@ -46,11 +44,13 @@ public final class ChessPieceSystem extends EntitySystem {
     private LdtkMap map;
     private float boardLeft;
     private float boardBottom;
-    private int nextEnemyTurn;
     private boolean finished;
     private boolean lostLifeThisTurn;
     private int lives = 2;
     private Entity predictionMarker;
+    private Entity predictionSourceMarker;
+    private PlannedMove predictedMove;
+    private PlannedMove pendingThreatMove;
     private boolean pendingThreat;
     private int pendingCaptureColumn;
     private int pendingCaptureRow;
@@ -73,11 +73,12 @@ public final class ChessPieceSystem extends EntitySystem {
 
     public void setMap(LdtkMap map) {
         clearPredictionMarker();
+        predictedMove = null;
+        pendingThreatMove = null;
         pendingThreat = false;
         this.map = map;
         boardLeft = (map.getWidth() - BOARD_SIZE * CELL_SIZE) * 0.5f;
         boardBottom = (map.getHeight() - BOARD_SIZE * CELL_SIZE) * 0.5f;
-        nextEnemyTurn = 0;
         finished = false;
         lostLifeThisTurn = false;
         lives = 2;
@@ -186,23 +187,61 @@ public final class ChessPieceSystem extends EntitySystem {
                 if (respawn != null) moveEntity(player, respawn.column, respawn.row);
                 viewModel.setGameMessage("Captured! Respawned safely. " + lives + " life remaining.");
                 pendingThreat = false;
+                pendingThreatMove = null;
                 return;
             }
+            PlannedMove threatenedMove = pendingThreatMove;
             pendingThreat = false;
+            pendingThreatMove = null;
+            if (threatenedMove != null && threatenedMove.piece != capturedPiece
+                && isOnBoard(threatenedMove.piece)) {
+                Vector2 currentPlayerPosition = entityCenter(player);
+                int currentPlayerColumn = cell(currentPlayerPosition.x, boardLeft);
+                int currentPlayerRow = cell(currentPlayerPosition.y, boardBottom);
+                if (threatenedMove.destination.column == currentPlayerColumn
+                    && threatenedMove.destination.row == currentPlayerRow) {
+                    pendingThreat = true;
+                    pendingThreatMove = threatenedMove;
+                    pendingCaptureColumn = currentPlayerColumn;
+                    pendingCaptureRow = currentPlayerRow;
+                    viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
+                    return;
+                }
+                Gdx.app.log("ChessEngine", "Executing predicted black move " + moveName(threatenedMove));
+                moveEntity(
+                    threatenedMove.piece,
+                    threatenedMove.destination.column,
+                    threatenedMove.destination.row
+                );
+                return;
+            }
         }
 
-        PlannedMove plannedMove = findEnemyMove(player, capturedPiece);
+        PlannedMove plannedMove = predictedMove;
+        predictedMove = null;
+        if (plannedMove != null && (plannedMove.piece == capturedPiece || !isOnBoard(plannedMove.piece))) {
+            plannedMove = null;
+        }
+        if (plannedMove != null && pieceAt(plannedMove.destination.column, plannedMove.destination.row) != null) {
+            plannedMove = null;
+        }
+        if (plannedMove == null) plannedMove = findEnemyMove(player, capturedPiece);
         if (plannedMove == null) {
             viewModel.setEnemyPrediction("Enemy move: no legal move");
             clearPredictionMarker();
             return;
         }
-        nextEnemyTurn = (plannedMove.pieceIndex + 1) % pieces.size();
-        if (plannedMove.destination.column == plannedMove.playerColumn
-            && plannedMove.destination.row == plannedMove.playerRow) {
+        String uci = moveName(plannedMove);
+        Gdx.app.log("ChessEngine", "Executing predicted black move " + uci);
+        Vector2 playerPosition = entityCenter(player);
+        int playerColumn = cell(playerPosition.x, boardLeft);
+        int playerRow = cell(playerPosition.y, boardBottom);
+        if (plannedMove.destination.column == playerColumn
+            && plannedMove.destination.row == playerRow) {
             pendingThreat = true;
-            pendingCaptureColumn = plannedMove.playerColumn;
-            pendingCaptureRow = plannedMove.playerRow;
+            pendingThreatMove = plannedMove;
+            pendingCaptureColumn = playerColumn;
+            pendingCaptureRow = playerRow;
             viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
             return;
         }
@@ -210,149 +249,91 @@ public final class ChessPieceSystem extends EntitySystem {
     }
 
     private PlannedMove findEnemyMove(Entity player, Entity capturedPiece) {
-        if (pieces.size() == 0) return null;
         Vector2 playerPosition = entityCenter(player);
         int playerColumn = cell(playerPosition.x, boardLeft);
         int playerRow = cell(playerPosition.y, boardBottom);
-        PlannedMove firstAvailableMove = null;
-        for (int offset = 0; offset < pieces.size(); offset++) {
-            int index = (nextEnemyTurn + offset) % pieces.size();
-            Entity enemy = pieces.get(index);
-            if (enemy == capturedPiece) continue;
-            Vector2 enemyPosition = entityCenter(enemy);
-            int column = cell(enemyPosition.x, boardLeft);
-            int row = cell(enemyPosition.y, boardBottom);
-            List<Square> moves = legalMoves(enemy, column, row, playerColumn, playerRow);
-            Square bestMove = chooseMove(moves, playerColumn, playerRow);
-            if (bestMove != null) {
-                PlannedMove plannedMove = new PlannedMove(enemy, index, bestMove, playerColumn, playerRow);
-                if (bestMove.column == playerColumn && bestMove.row == playerRow) return plannedMove;
-                if (firstAvailableMove == null) firstAvailableMove = plannedMove;
-            }
-        }
-        return firstAvailableMove;
+        Position position = createEnginePosition(playerColumn, playerRow, capturedPiece);
+        Move move = enemyEngine.chooseMove(position, Side.BLACK, 3);
+        if (move == null) return null;
+        Entity movedEntity = pieceAt(move.fromFile(), move.fromRank());
+        if (movedEntity == null || movedEntity == capturedPiece) return null;
+        return new PlannedMove(
+            movedEntity,
+            new Square(move.fromFile(), move.fromRank()),
+            new Square(move.toFile(), move.toRank()),
+            playerColumn,
+            playerRow
+        );
     }
 
-    private Square chooseMove(List<Square> moves, int playerColumn, int playerRow) {
-        Square bestMove = null;
-        int bestDistance = Integer.MAX_VALUE;
-        for (Square move : moves) {
-            if (move.column == playerColumn && move.row == playerRow) return move;
-            int distance = Math.abs(move.column - playerColumn) + Math.abs(move.row - playerRow);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestMove = move;
-            }
+    private Position createEnginePosition(int playerColumn, int playerRow, Entity capturedPiece) {
+        Position position = new Position();
+        position.setSideToMove(Side.BLACK);
+        for (int i = 0; i < pieces.size(); i++) {
+            Entity entity = pieces.get(i);
+            if (entity == capturedPiece) continue;
+            Vector2 piecePosition = entityCenter(entity);
+            int column = cell(piecePosition.x, boardLeft);
+            int row = cell(piecePosition.y, boardBottom);
+            ChessPiece.Type pieceType = ChessPiece.MAPPER.get(entity).getType();
+            position.putPiece(column, row, new Piece(Side.BLACK, toEngineType(pieceType)));
         }
-        return bestMove;
+        position.putPiece(playerColumn, playerRow, new Piece(Side.WHITE, PieceType.PAWN));
+        return position;
     }
 
-    private List<Square> legalMoves(Entity piece, int column, int row, int playerColumn, int playerRow) {
-        List<Square> moves = new ArrayList<>();
-        ChessPiece.Type type = ChessPiece.MAPPER.get(piece).getType();
-        switch (type) {
-            case PAWN -> {
-                int forwardRow = row - 1;
-                boolean forwardOpen = isOpen(column, forwardRow)
-                    && pieceAt(column, forwardRow) == null
-                    && !(column == playerColumn && forwardRow == playerRow);
-                if (forwardOpen) {
-                    moves.add(new Square(column, forwardRow));
-                    int doubleStepRow = row - 2;
-                    if (row == BOARD_SIZE - 2 && isOpen(column, doubleStepRow)
-                        && pieceAt(column, doubleStepRow) == null
-                        && !(column == playerColumn && doubleStepRow == playerRow)) {
-                        moves.add(new Square(column, doubleStepRow));
-                    }
-                }
-                addPlayerCapture(moves, column - 1, forwardRow, playerColumn, playerRow);
-                addPlayerCapture(moves, column + 1, forwardRow, playerColumn, playerRow);
-            }
-            case KNIGHT -> {
-                for (int[] offset : KNIGHT_MOVES) {
-                    addStep(moves, column + offset[0], row + offset[1], playerColumn, playerRow);
-                }
-            }
-            case KING -> addSteps(moves, column, row, playerColumn, playerRow, QUEEN_DIRECTIONS);
-            case ROOK -> addSlidingMoves(moves, column, row, playerColumn, playerRow, ROOK_DIRECTIONS);
-            case BISHOP -> addSlidingMoves(moves, column, row, playerColumn, playerRow, BISHOP_DIRECTIONS);
-            case QUEEN -> addSlidingMoves(moves, column, row, playerColumn, playerRow, QUEEN_DIRECTIONS);
-        }
-        return moves;
-    }
-
-    private void addSteps(List<Square> moves, int column, int row, int playerColumn, int playerRow, int[][] directions) {
-        for (int[] direction : directions) {
-            addStep(moves, column + direction[0], row + direction[1], playerColumn, playerRow);
-        }
-    }
-
-    private void addStep(List<Square> moves, int column, int row, int playerColumn, int playerRow) {
-        if (!isOpen(column, row)) return;
-        if (column == playerColumn && row == playerRow) {
-            moves.add(new Square(column, row));
-        } else if (pieceAt(column, row) == null) {
-            moves.add(new Square(column, row));
-        }
-    }
-
-    private void addPlayerCapture(List<Square> moves, int column, int row, int playerColumn, int playerRow) {
-        if (isOpen(column, row) && column == playerColumn && row == playerRow) {
-            moves.add(new Square(column, row));
-        }
-    }
-
-    private void addSlidingMoves(
-        List<Square> moves,
-        int column,
-        int row,
-        int playerColumn,
-        int playerRow,
-        int[][] directions
-    ) {
-        for (int[] direction : directions) {
-            int nextColumn = column + direction[0];
-            int nextRow = row + direction[1];
-            while (isOpen(nextColumn, nextRow)) {
-                if (nextColumn == playerColumn && nextRow == playerRow) {
-                    moves.add(new Square(nextColumn, nextRow));
-                    break;
-                }
-                if (pieceAt(nextColumn, nextRow) != null) break;
-                moves.add(new Square(nextColumn, nextRow));
-                nextColumn += direction[0];
-                nextRow += direction[1];
-            }
-        }
+    private static PieceType toEngineType(ChessPiece.Type type) {
+        return PieceType.valueOf(type.name());
     }
 
     private void updatePrediction() {
         if (finished || players == null || players.size() == 0) return;
         if (pendingThreat) {
             updatePredictionMarker(pendingCaptureColumn, pendingCaptureRow, true);
+            clearPredictionSourceMarker();
             viewModel.setEnemyPrediction("Danger: enemy threatens your square!");
             viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
             return;
         }
-        PlannedMove move = findEnemyMove(players.first(), null);
-        if (move == null) {
+        predictedMove = findEnemyMove(players.first(), null);
+        if (predictedMove == null) {
             viewModel.setEnemyPrediction("Enemy move: no legal move");
             clearPredictionMarker();
             return;
         }
+        PlannedMove move = predictedMove;
         ChessPiece.Type type = ChessPiece.MAPPER.get(move.piece).getType();
         String pieceName = type.name().toLowerCase();
-        String squareName = String.valueOf((char) ('a' + move.destination.column))
-            + (move.destination.row + 1);
         boolean threat = move.destination.column == move.playerColumn && move.destination.row == move.playerRow;
         updatePredictionMarker(move.destination.column, move.destination.row, threat);
-        viewModel.setEnemyPrediction((threat ? "Danger: " : "Next: ") + pieceName + " to " + squareName);
+        updatePredictionSourceMarker(move.piece);
+        String description = (threat ? "Danger: " : "Next: ") + pieceName + " " + moveName(move);
+        viewModel.setEnemyPrediction(description);
+        Gdx.app.log("ChessEngine", "Predicted black move " + moveName(move)
+            + " (" + pieceName + ", searched " + enemyEngine.searchedNodes() + " nodes)");
     }
 
     private void updatePredictionMarker(int column, int row, boolean threat) {
-        if (predictionMarker == null) {
-            predictionMarker = getEngine().createEntity();
-            predictionMarker.add(new Transform(
+        Color color = threat ? new Color(1f, 0.08f, 0.08f, 0.5f) : new Color(1f, 0.78f, 0.12f, 0.42f);
+        predictionMarker = updateMarker(predictionMarker, column, row, color);
+    }
+
+    private void updatePredictionSourceMarker(Entity piece) {
+        Vector2 position = entityCenter(piece);
+        int column = cell(position.x, boardLeft);
+        int row = cell(position.y, boardBottom);
+        predictionSourceMarker = updateMarker(
+            predictionSourceMarker,
+            column,
+            row,
+            new Color(0.12f, 0.8f, 1f, 0.36f)
+        );
+    }
+
+    private Entity updateMarker(Entity marker, int column, int row, Color color) {
+        if (marker == null) {
+            marker = getEngine().createEntity();
+            marker.add(new Transform(
                 new Vector2(boardLeft + column * CELL_SIZE, boardBottom + row * CELL_SIZE),
                 3,
                 new Vector2(CELL_SIZE, CELL_SIZE),
@@ -360,37 +341,32 @@ public final class ChessPieceSystem extends EntitySystem {
                 0f,
                 0f
             ));
-            predictionMarker.add(new Graphic(
-                predictionRegion,
-                threat ? new Color(1f, 0.08f, 0.08f, 0.5f) : new Color(1f, 0.78f, 0.12f, 0.42f)
-            ));
-            getEngine().addEntity(predictionMarker);
-            return;
+            marker.add(new Graphic(predictionRegion, color));
+            getEngine().addEntity(marker);
+            return marker;
         }
-        Transform transform = Transform.MAPPER.get(predictionMarker);
+        Transform transform = Transform.MAPPER.get(marker);
         transform.getPosition().set(boardLeft + column * CELL_SIZE, boardBottom + row * CELL_SIZE);
-        Graphic.MAPPER.get(predictionMarker).getColor().set(
-            threat ? new Color(1f, 0.08f, 0.08f, 0.5f) : new Color(1f, 0.78f, 0.12f, 0.42f)
-        );
+        Graphic.MAPPER.get(marker).getColor().set(color);
+        return marker;
     }
 
     private void clearPredictionMarker() {
-        if (predictionMarker == null) return;
-        getEngine().removeEntity(predictionMarker);
+        if (predictionMarker != null) getEngine().removeEntity(predictionMarker);
         predictionMarker = null;
+        clearPredictionSourceMarker();
+    }
+
+    private void clearPredictionSourceMarker() {
+        if (predictionSourceMarker != null) getEngine().removeEntity(predictionSourceMarker);
+        predictionSourceMarker = null;
     }
 
     private Entity findThreateningPiece(int column, int row, Entity capturedPiece) {
-        for (int i = 0; i < pieces.size(); i++) {
-            Entity piece = pieces.get(i);
-            if (piece == capturedPiece) continue;
-            Vector2 position = entityCenter(piece);
-            int pieceColumn = cell(position.x, boardLeft);
-            int pieceRow = cell(position.y, boardBottom);
-            List<Square> moves = legalMoves(piece, pieceColumn, pieceRow, column, row);
-            for (Square move : moves) {
-                if (move.column == column && move.row == row) return piece;
-            }
+        Position position = createEnginePosition(column, row, capturedPiece);
+        int targetSquare = row * BOARD_SIZE + column;
+        for (Move move : position.legalMoves(Side.BLACK)) {
+            if (move.to() == targetSquare) return pieceAt(move.fromFile(), move.fromRank());
         }
         return null;
     }
@@ -430,10 +406,31 @@ public final class ChessPieceSystem extends EntitySystem {
         return column >= 0 && column < BOARD_SIZE && row >= 0 && row < BOARD_SIZE;
     }
 
+    private boolean isOnBoard(Entity piece) {
+        for (int i = 0; i < pieces.size(); i++) {
+            if (pieces.get(i) == piece) return true;
+        }
+        return false;
+    }
+
+    private static String moveName(PlannedMove move) {
+        return squareName(move.source.column, move.source.row) + squareName(move.destination.column, move.destination.row);
+    }
+
+    private static String squareName(int file, int rank) {
+        return String.valueOf((char) ('a' + file)) + (rank + 1);
+    }
+
     private record Square(int column, int row) {
     }
 
-    private record PlannedMove(Entity piece, int pieceIndex, Square destination, int playerColumn, int playerRow) {
+    private record PlannedMove(
+        Entity piece,
+        Square source,
+        Square destination,
+        int playerColumn,
+        int playerRow
+    ) {
     }
 
     private void moveEntity(Entity entity, int column, int row) {
