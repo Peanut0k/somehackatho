@@ -1,0 +1,337 @@
+package io.github.com.quillraven.ldtk;
+
+import box2dLight.ConeLight;
+import box2dLight.DirectionalLight;
+import box2dLight.Light;
+import box2dLight.PointLight;
+import box2dLight.RayHandler;
+import com.badlogic.ashley.core.Engine;
+import com.badlogic.ashley.core.Entity;
+import com.badlogic.ashley.core.Family;
+import com.badlogic.ashley.utils.ImmutableArray;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.Body;
+import com.badlogic.gdx.physics.box2d.BodyDef;
+import com.badlogic.gdx.physics.box2d.PolygonShape;
+import com.badlogic.gdx.physics.box2d.World;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.Disposable;
+import io.github.com.quillraven.GdxGame;
+import io.github.com.quillraven.asset.AssetService;
+import io.github.com.quillraven.asset.AtlasAsset;
+import io.github.com.quillraven.component.Animation2D;
+import io.github.com.quillraven.component.CameraFollow;
+import io.github.com.quillraven.component.Controller;
+import io.github.com.quillraven.component.Facing;
+import io.github.com.quillraven.component.Facing.FacingDirection;
+import io.github.com.quillraven.component.Fsm;
+import io.github.com.quillraven.component.Graphic;
+import io.github.com.quillraven.component.Ldtk;
+import io.github.com.quillraven.component.Lighting;
+import io.github.com.quillraven.component.Move;
+import io.github.com.quillraven.component.Physic;
+import io.github.com.quillraven.component.Player;
+import io.github.com.quillraven.component.Transform;
+import io.github.com.quillraven.component.Trigger;
+
+public final class LdtkAshleyConfigurator implements Disposable {
+    private final Engine engine;
+    private final World physicsWorld;
+    private final AssetService assetService;
+    private final RayHandler rayHandler;
+    private final Texture portalTexture;
+
+    public LdtkAshleyConfigurator(Engine engine, World physicsWorld, AssetService assetService, RayHandler rayHandler) {
+        this.engine = engine;
+        this.physicsWorld = physicsWorld;
+        this.assetService = assetService;
+        this.rayHandler = rayHandler;
+        this.portalTexture = createPortalTexture();
+    }
+
+    public void onLoadEntity(LdtkMap.EntityInstance instance) {
+        String id = instance.identifier();
+        String lowerId = id.toLowerCase();
+        if (isLightEntity(instance, lowerId)) {
+            createLightEntity(instance, lowerId);
+            return;
+        }
+        String triggerName = instance.getString("triggerName", instance.getString("trigger", ""));
+        boolean isSensor = instance.getBoolean("sensor", false);
+        boolean isTrigger = lowerId.contains("trigger") || !triggerName.isBlank() || isSensor;
+        boolean isPlayer = "player".equalsIgnoreCase(id);
+        if (isPlayer && engine.getEntitiesFor(Family.all(Player.class).get()).size() > 0) return;
+
+        Entity entity = engine.createEntity();
+        float width = Math.max(instance.width(), GdxGame.UNIT_SCALE * 8f);
+        float height = Math.max(instance.height(), GdxGame.UNIT_SCALE * 8f);
+        float colliderWidth = instance.getFloat("colliderWidth", instance.width() / GdxGame.UNIT_SCALE)
+            * GdxGame.UNIT_SCALE;
+        float colliderHeight = instance.getFloat("colliderHeight", instance.height() / GdxGame.UNIT_SCALE)
+            * GdxGame.UNIT_SCALE;
+        float colliderCenterX = instance.width() * 0.5f
+            + instance.getFloat("colliderOffsetX", 0f) * GdxGame.UNIT_SCALE;
+        float colliderCenterY = instance.height() * 0.5f
+            + instance.getFloat("colliderOffsetY", 0f) * GdxGame.UNIT_SCALE;
+        Vector2 position = new Vector2(instance.x(), instance.y());
+        entity.add(new Transform(position, (int) instance.getFloat("z", 1f),
+            new Vector2(width, height), new Vector2(
+                instance.getFloat("scaleX", 1f),
+                instance.getFloat("scaleY", 1f)
+            ), instance.getFloat("rotation", 0f),
+            instance.getFloat("sortOffsetY", 0f) * GdxGame.UNIT_SCALE));
+        entity.add(new Ldtk(instance.iid(), id));
+
+        if (isTrigger) {
+            String name = triggerName.isBlank()
+                ? isSensor || lowerId.startsWith("teleport") ? "teleportt" : id
+                : triggerName;
+            entity.add(new Trigger(name));
+            if (lowerId.startsWith("teleport")) {
+                entity.add(new Graphic(new TextureRegion(portalTexture), Color.WHITE.cpy()));
+            }
+            createBody(entity, position, colliderWidth, colliderHeight, colliderCenterX,
+                colliderCenterY, BodyDef.BodyType.StaticBody, true);
+            engine.addEntity(entity);
+            return;
+        }
+
+        TextureRegion region = getRegion(instance);
+        if (region != null) {
+            entity.add(new Graphic(region, Color.WHITE.cpy()));
+        }
+        addAnimation(instance, entity);
+        addMovement(instance, entity);
+        entity.add(new Facing(FacingDirection.DOWN));
+        entity.add(new Fsm(entity));
+
+        if (isPlayer) {
+            entity.add(new Player());
+            entity.add(new Controller());
+            entity.add(new CameraFollow());
+            if (Move.MAPPER.get(entity) == null) {
+                entity.add(new Move(3f * 16f * GdxGame.UNIT_SCALE));
+            }
+        } else {
+            if (instance.getBoolean("controller", false)) entity.add(new Controller());
+            if (instance.getBoolean("camFollow", false)) entity.add(new CameraFollow());
+        }
+
+        String bodyTypeName = instance.getString("bodyType",
+            "Prop".equalsIgnoreCase(instance.getString("type", "")) ? "StaticBody" : "DynamicBody");
+        try {
+            createBody(entity, position, colliderWidth, colliderHeight,
+                colliderCenterX, colliderCenterY,
+                BodyDef.BodyType.valueOf(bodyTypeName), instance.getBoolean("sensor", false));
+        } catch (IllegalArgumentException exception) {
+            throw new GdxRuntimeException("Unsupported LDtk bodyType '" + bodyTypeName + "' on " + id, exception);
+        }
+        engine.addEntity(entity);
+    }
+
+    private static Texture createPortalTexture() {
+        Pixmap pixmap = new Pixmap(16, 16, Pixmap.Format.RGBA8888);
+        pixmap.setBlending(Pixmap.Blending.None);
+        pixmap.setColor(0.08f, 0.12f, 0.3f, 1f);
+        pixmap.fillCircle(8, 8, 7);
+        pixmap.setColor(0.25f, 0.65f, 1f, 1f);
+        pixmap.fillCircle(8, 8, 5);
+        pixmap.setColor(0.15f, 0.22f, 0.5f, 1f);
+        pixmap.fillCircle(8, 8, 3);
+        pixmap.setColor(0.65f, 0.9f, 1f, 1f);
+        pixmap.fillCircle(8, 8, 1);
+        Texture texture = new Texture(pixmap);
+        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        pixmap.dispose();
+        return texture;
+    }
+
+    private static boolean isLightEntity(LdtkMap.EntityInstance instance, String lowerId) {
+        return instance.fields().containsKey("lightType")
+            || lowerId.equals("light")
+            || lowerId.equals("pointlight")
+            || lowerId.equals("conelight")
+            || lowerId.equals("directionallight");
+    }
+
+    private void createLightEntity(LdtkMap.EntityInstance instance, String lowerId) {
+        String defaultType = switch (lowerId) {
+            case "conelight" -> "cone";
+            case "directionallight" -> "directional";
+            default -> "point";
+        };
+        String lightType = instance.getString("lightType", defaultType).toLowerCase();
+        String colorValue = instance.getString("color", "#ffc878").replace("#", "");
+        Color color;
+        try {
+            color = Color.valueOf(colorValue);
+        } catch (IllegalArgumentException exception) {
+            throw new GdxRuntimeException("Invalid LDtk light color '" + colorValue + "'", exception);
+        }
+
+        int rays = MathUtils.clamp((int) instance.getFloat("rays", 64f), 8, 128);
+        float distance = instance.getFloat("distance", 120f);
+        if (distance <= 0f) {
+            throw new GdxRuntimeException("LDtk light distance must be greater than zero on " + instance.identifier());
+        }
+        float direction = instance.getFloat("direction", 0f);
+        Vector2 position = new Vector2(instance.x(), instance.y());
+        Vector2 size = new Vector2(instance.width(), instance.height());
+        float centerX = position.x + size.x * 0.5f;
+        float centerY = position.y + size.y * 0.5f;
+        Light light;
+        switch (lightType) {
+            case "point" -> light = new PointLight(
+                rayHandler, rays, color, distance, centerX, centerY);
+            case "cone" -> light = new ConeLight(
+                rayHandler, rays, color, distance, centerX, centerY,
+                direction, MathUtils.clamp(instance.getFloat("coneAngle", 45f), 1f, 180f));
+            case "directional" -> light = new DirectionalLight(
+                rayHandler, rays, color, direction);
+            default -> throw new GdxRuntimeException(
+                "Unsupported LDtk lightType '" + lightType + "' on " + instance.identifier());
+        }
+        light.setSoft(instance.getBoolean("soft", true));
+        light.setSoftnessLength(Math.max(0f, instance.getFloat("softnessLength", 2f)));
+        light.setActive(instance.getBoolean("active", true));
+        boolean staticLight = instance.getBoolean("staticLight", false);
+        light.setStaticLight(staticLight);
+
+        Entity entity = engine.createEntity();
+        entity.add(new Transform(position, 0, size, new Vector2(1f, 1f), 0f, 0f));
+        entity.add(new Ldtk(instance.iid(), instance.identifier()));
+        entity.add(new Lighting(light, !staticLight && !"directional".equals(lightType)));
+        engine.addEntity(entity);
+    }
+
+    public void createDefaultPlayer(LdtkMap map) {
+        ImmutableArray<Entity> players = engine.getEntitiesFor(Family.all(Player.class, Physic.class).get());
+        if (players.size() > 0) {
+            positionExistingPlayer(players.first(), map);
+            return;
+        }
+        for (LdtkMap.EntityInstance entity : map.getEntities()) {
+            if ("player".equalsIgnoreCase(entity.identifier())) return;
+        }
+        float[] spawn = map.findOpenSpawn();
+        TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
+        var idleFrames = atlas.findRegions("player/idle_down");
+        TextureRegion region = idleFrames.isEmpty() ? null : idleFrames.first();
+        if (region == null) throw new GdxRuntimeException("Player idle animation is missing from objects.atlas");
+        Vector2 size = new Vector2(
+            region.getRegionWidth() * GdxGame.UNIT_SCALE,
+            region.getRegionHeight() * GdxGame.UNIT_SCALE
+        );
+        Entity entity = engine.createEntity();
+        Vector2 position = new Vector2(spawn[0] - size.x * 0.25f, spawn[1] - size.y * 0.25f);
+        entity.add(new Transform(position, 1, size, new Vector2(1f, 1f), 0f, 0f));
+        entity.add(new Graphic(region, Color.WHITE.cpy()));
+        entity.add(new Animation2D(AtlasAsset.OBJECTS, "player", Animation2D.AnimationType.IDLE,
+            Animation.PlayMode.LOOP, 1f));
+        entity.add(new Facing(FacingDirection.DOWN));
+        entity.add(new Fsm(entity));
+        entity.add(new Player());
+        entity.add(new Controller());
+        entity.add(new CameraFollow());
+        entity.add(new Move(3f * map.getGridSize() * GdxGame.UNIT_SCALE));
+        createBody(entity, position, size.x * 0.275f, size.y * 0.275f,
+            size.x * 0.5f, size.y * 0.5f, BodyDef.BodyType.DynamicBody, false);
+        engine.addEntity(entity);
+    }
+
+    private static void positionExistingPlayer(Entity player, LdtkMap map) {
+        Physic physic = Physic.MAPPER.get(player);
+        Body body = physic.getBody();
+        LdtkMap.EntityInstance spawn = null;
+        for (LdtkMap.EntityInstance instance : map.getEntities()) {
+            if ("player".equalsIgnoreCase(instance.identifier())) {
+                spawn = instance;
+                break;
+            }
+        }
+
+        Vector2 target = new Vector2();
+        if (spawn != null) {
+            target.set(spawn.x(), spawn.y());
+        } else {
+            float[] openSpawn = map.findOpenSpawn();
+            target.set(openSpawn[0], openSpawn[1]);
+            target.sub(body.getWorldCenter()).add(body.getPosition());
+        }
+        body.setTransform(target, body.getAngle());
+        body.setLinearVelocity(0f, 0f);
+        body.setAngularVelocity(0f);
+        physic.getPrevPosition().set(target);
+        Transform.MAPPER.get(player).getPosition().set(target);
+        Move move = Move.MAPPER.get(player);
+        if (move != null) move.getDirection().setZero();
+        Controller controller = Controller.MAPPER.get(player);
+        if (controller != null) {
+            controller.getPressedCommands().clear();
+            controller.getReleasedCommands().clear();
+        }
+    }
+
+    private TextureRegion getRegion(LdtkMap.EntityInstance instance) {
+        if (instance.region() != null) return instance.region();
+        String sprite = instance.getString("sprite", "");
+        if (sprite.isBlank()) return null;
+        String atlasName = instance.getString("atlasAsset", "OBJECTS");
+        try {
+            TextureAtlas atlas = assetService.get(AtlasAsset.valueOf(atlasName));
+            TextureRegion region = atlas.findRegion(sprite);
+            if (region == null) region = atlas.findRegion(sprite + "/" + sprite);
+            return region;
+        } catch (IllegalArgumentException exception) {
+            throw new GdxRuntimeException("Unsupported LDtk atlasAsset '" + atlasName + "'", exception);
+        }
+    }
+
+    private void addAnimation(LdtkMap.EntityInstance instance, Entity entity) {
+        String animation = instance.getString("animation", "");
+        if (animation.isBlank()) return;
+        try {
+            AtlasAsset atlasAsset = AtlasAsset.valueOf(instance.getString("atlasAsset", "OBJECTS"));
+            String atlasKey = instance.getString("atlasKey", instance.getString("sprite", instance.identifier().toLowerCase()));
+            Animation2D.AnimationType type = Animation2D.AnimationType.valueOf(animation);
+            entity.add(new Animation2D(atlasAsset, atlasKey, type, Animation.PlayMode.LOOP,
+                instance.getFloat("animationSpeed", 1f)));
+        } catch (IllegalArgumentException exception) {
+            throw new GdxRuntimeException("Invalid LDtk animation fields on " + instance.identifier(), exception);
+        }
+    }
+
+    private void addMovement(LdtkMap.EntityInstance instance, Entity entity) {
+        float speed = instance.getFloat("speed", 0f);
+        if (speed > 0f) entity.add(new Move(speed));
+    }
+
+    private void createBody(Entity entity, Vector2 position, float width, float height,
+                            float centerX, float centerY, BodyDef.BodyType bodyType, boolean sensor) {
+        BodyDef bodyDef = new BodyDef();
+        bodyDef.type = bodyType;
+        bodyDef.position.set(position);
+        bodyDef.fixedRotation = true;
+        Body body = physicsWorld.createBody(bodyDef);
+        body.setUserData(entity);
+        PolygonShape shape = new PolygonShape();
+        shape.setAsBox(width * 0.5f, height * 0.5f, new Vector2(centerX, centerY), 0f);
+        var fixture = body.createFixture(shape, bodyType == BodyDef.BodyType.DynamicBody ? 1f : 0f);
+        fixture.setSensor(sensor);
+        fixture.setUserData(sensor ? "trigger" : null);
+        shape.dispose();
+        entity.add(new Physic(body, new Vector2(body.getPosition())));
+    }
+
+    @Override
+    public void dispose() {
+        portalTexture.dispose();
+    }
+}
