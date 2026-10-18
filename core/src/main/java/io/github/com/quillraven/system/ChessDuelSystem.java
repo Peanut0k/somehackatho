@@ -269,7 +269,7 @@ public final class ChessDuelSystem {
 
         if (move.promotion() != null) {
             Graphic.MAPPER.get(movingEntity)
-                .setRegion(pieceFactory.getPieceRegion(move.promotion()));
+                .setRegion(pieceFactory.getPieceRegion(move.promotion(), movingPiece.side()));
         }
 
         if (movingPiece.type() == PieceType.KING && Math.abs(move.toFile() - move.fromFile()) == 2) {
@@ -313,7 +313,10 @@ public final class ChessDuelSystem {
         Entity entity = engine.createEntity();
         entity.add(new Transform(squarePosition(square), PIECE_Z,
             new Vector2(CELL_SIZE, CELL_SIZE), new Vector2(1f, 1f), 0f, 0f));
-        entity.add(new Graphic(pieceFactory.getPieceRegion(piece.type()), pieceFactory.getPieceColor(piece.side())));
+        entity.add(new Graphic(
+            pieceFactory.getPieceRegion(piece.type(), piece.side()),
+            pieceFactory.getPieceColor(piece.side())
+        ));
         engine.addEntity(entity);
         pieces[square] = entity;
     }

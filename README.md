@@ -8,7 +8,7 @@ A small LibGDX prototype with a grassy hub, chess challengers, and a pawn-vs-arm
 - Press E near a chess challenger to accept the challenge, or click the challenger
 - Press E near the glowing portal to enter the pawn arena
 - In a standard chess duel, click a white piece and then a highlighted destination. You play white; the challenger plays black. If unlocked, right-click once per duel to use the double-move ability: make two consecutive legal moves before black responds.
-- In the arena, A/D: rotate; W/S: move forward/backward; Q/R: capture diagonally left/right
+- In the arena, click your pawn and then a highlighted square to move or capture; click an adjacent side square to rotate. Keyboard controls remain available: A/D rotate, W/S move forward/backward, and Q/R capture diagonally left/right.
 - Arena lives are shown as hearts, and your current facing direction appears as a small fixed indicator in the corner.
 - Hub interaction prompts appear beside the nearby challenger or portal.
 - If you are checkmated in a chess duel, the final board stays visible so you can inspect it; press any keyboard key to return to the hub.
@@ -24,7 +24,7 @@ A small LibGDX prototype with a grassy hub, chess challengers, and a pawn-vs-arm
 
 ## Maps
 
-The game uses `PoserSeDane/PoserSeDane.ldtk` and its assets. It starts in `Level_0`; the placed `Kupec` merchants are chess challengers and use the supplied merchant sprite. If there are no placed challengers, three defaults spawn around the player. The portal leads to `Level_1`, where the 8×8 board, the player's pawn, and the black army are created when the arena loads. LDtk layers are composited back-to-front, including entities at their own layer depth. Arena and duel pieces use the supplied `pawn.png`, `horse.png`, `rook.png`, `rock.png`, and `pesak.png` art; the queen reuses `rook.png` because no separate queen image is supplied. A placed `ChessPawn` entity is a static pawn and falls back to `pawn.png` when it has no LDtk tile.
+The game uses `PoserSeDane/PoserSeDane.ldtk` and its assets. It starts in the hub (`Level_0`); the placed `Kupec` merchants are chess challengers and use the supplied merchant sprite. If there are no placed challengers, three defaults spawn around the player. The portal leads to `Level_1`; the arena places pieces directly on the existing 8×8 floor board and does not generate a replacement board. The player's chess pieces use their original procedural ivory art. Enemy pieces use the supplied `pawn.png`, `horse.png`, `rook.png`, `rock.png`, and `pesak.png` images; the queen reuses `rook.png` because no separate queen image is supplied. A placed `ChessPawn` entity is a static enemy pawn and falls back to `pawn.png` when it has no LDtk tile.
 
 ### Chess challenger entity
 

@@ -15,9 +15,11 @@ public class CameraSystem extends IteratingSystem {
     private static final float CAM_OFFSET_Y = 1f; // make the camera look up 'X' additional tiles
     private static final float BASE_SMOOTHING_FACTOR = 0.4f;
     private static final float DEAD_ZONE_RATIO = 0.3f;
+    private static final float ARENA_ZOOM_FACTOR = 0.95f;
 
     private final OrthographicCamera camera;
     private final Vector2 targetPosition;
+    private final float defaultZoom;
     private float smoothingFactor;
     private float mapW;
     private float mapH;
@@ -27,6 +29,7 @@ public class CameraSystem extends IteratingSystem {
         super(Family.all(CameraFollow.class, Transform.class).get());
         this.camera = camera;
         this.targetPosition = new Vector2();
+        this.defaultZoom = camera.zoom;
     }
 
     /**
@@ -96,8 +99,15 @@ public class CameraSystem extends IteratingSystem {
      * Sets up camera for a new map and positions it at the target entity.
      */
     public void setMap(LdtkMap map) {
+        setMap(map, false);
+    }
+
+    public void setMap(LdtkMap map, boolean fitEntireMap) {
         mapW = map.getWidth();
         mapH = map.getHeight();
+        camera.zoom = fitEntireMap
+            ? Math.max(mapW / camera.viewportWidth, mapH / camera.viewportHeight) * ARENA_ZOOM_FACTOR
+            : defaultZoom;
         smoothingFactor = BASE_SMOOTHING_FACTOR * map.getGridSize() * GdxGame.UNIT_SCALE;
 
         Entity camEntity = getEntities().first();

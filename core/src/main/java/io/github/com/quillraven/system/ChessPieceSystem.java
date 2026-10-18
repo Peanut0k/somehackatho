@@ -25,19 +25,23 @@ import io.github.com.quillraven.component.Player;
 import io.github.com.quillraven.component.Transform;
 import io.github.com.quillraven.input.Command;
 import io.github.com.quillraven.ldtk.LdtkMap;
+import io.github.com.quillraven.screen.ChessPieceFactory;
 import io.github.com.quillraven.ui.model.GameViewModel;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class ChessPieceSystem extends EntitySystem {
     private static final int BOARD_SIZE = 8;
-    private static final float CELL_SIZE = 16f;
+    private static final float CELL_SIZE = ChessPieceFactory.ARENA_CELL_SIZE;
 
     private final GameViewModel viewModel;
     private final TextureRegion predictionRegion;
     private final Consumer<Boolean> onCombatFinished;
     private final ChessEngine enemyEngine = new ChessEngine();
     private final Vector2 target = new Vector2();
+    private final List<Entity> mouseDestinationMarkers = new ArrayList<>();
     private ImmutableArray<Entity> pieces;
     private ImmutableArray<Entity> players;
     private LdtkMap map;
@@ -49,6 +53,9 @@ public final class ChessPieceSystem extends EntitySystem {
     private Entity predictionMarker;
     private Entity predictionSourceMarker;
     private PlannedMove predictedMove;
+    private Entity mouseSelectedMarker;
+    private int mouseSelectedSquare = -1;
+    private boolean arenaActive;
 
     public ChessPieceSystem(
         GameViewModel viewModel,
@@ -67,16 +74,64 @@ public final class ChessPieceSystem extends EntitySystem {
     }
 
     public void setMap(LdtkMap map) {
+        clearMouseSelection();
         clearPredictionMarker();
         predictedMove = null;
         this.map = map;
-        boardLeft = (map.getWidth() - BOARD_SIZE * CELL_SIZE) * 0.5f;
-        boardBottom = (map.getHeight() - BOARD_SIZE * CELL_SIZE) * 0.5f;
+        boardLeft = ChessPieceFactory.ARENA_BOARD_LEFT;
+        boardBottom = ChessPieceFactory.ARENA_BOARD_BOTTOM;
         finished = false;
         lostLifeThisTurn = false;
         viewModel.setLives(lives);
         viewModel.setGameMessage("Capture the black king.");
         viewModel.setEnemyPrediction("Enemy move: preparing board");
+    }
+
+    public void setArenaActive(boolean active) {
+        arenaActive = active;
+        if (!active) clearMouseSelection();
+    }
+
+    public boolean isArenaActive() {
+        return arenaActive && !finished;
+    }
+
+    public void handleMouseClick(float worldX, float worldY) {
+        if (!isArenaActive() || getEngine().getEntitiesFor(Family.all(BoardMotion.class).get()).size() > 0
+            || players.size() == 0) return;
+        int square = squareAt(worldX, worldY);
+        if (square < 0) {
+            clearMouseSelection();
+            return;
+        }
+
+        Entity player = players.first();
+        Vector2 playerPosition = entityCenter(player);
+        int playerColumn = cell(playerPosition.x, boardLeft);
+        int playerRow = cell(playerPosition.y, boardBottom);
+        int playerSquare = playerRow * BOARD_SIZE + playerColumn;
+
+        if (mouseSelectedSquare < 0) {
+            if (square != playerSquare) {
+                viewModel.setGameMessage("Click your pawn to select it.");
+                return;
+            }
+            selectMousePawn(playerSquare);
+            return;
+        }
+
+        if (square == playerSquare) {
+            clearMouseSelection();
+            return;
+        }
+        Command action = mouseActionForSquare(player, playerColumn, playerRow, square);
+        if (action == null) {
+            viewModel.setGameMessage("Choose a highlighted square.");
+            return;
+        }
+
+        clearMouseSelection();
+        movePlayer(action);
     }
 
     public void initializeBoard() {
@@ -93,6 +148,7 @@ public final class ChessPieceSystem extends EntitySystem {
     public boolean movePlayer(Command action) {
         if (finished || map == null || players.size() == 0) return false;
         if (getEngine().getEntitiesFor(Family.all(BoardMotion.class).get()).size() > 0) return false;
+        clearMouseSelection();
 
         Entity player = players.first();
         Facing facing = Facing.MAPPER.get(player);
@@ -308,6 +364,87 @@ public final class ChessPieceSystem extends EntitySystem {
         predictionSourceMarker = null;
     }
 
+    private void selectMousePawn(int square) {
+        mouseSelectedSquare = square;
+        mouseSelectedMarker = createMouseMarker(square, new Color(0.2f, 0.85f, 0.35f, 0.5f));
+        Entity player = players.first();
+        Vector2 playerPosition = entityCenter(player);
+        int column = cell(playerPosition.x, boardLeft);
+        int row = cell(playerPosition.y, boardBottom);
+        FacingDirection facing = Facing.MAPPER.get(player).getDirection();
+        int[] forward = vector(facing);
+        int[] left = {-forward[1], forward[0]};
+
+        addMouseDestination(column + forward[0], row + forward[1], isEmpty(column + forward[0], row + forward[1]));
+        addMouseDestination(column - forward[0], row - forward[1], isEmpty(column - forward[0], row - forward[1]));
+        addMouseDestination(column + left[0], row + left[1], isOpen(column + left[0], row + left[1]));
+        addMouseDestination(column - left[0], row - left[1], isOpen(column - left[0], row - left[1]));
+
+        Entity leftEnemy = pieceAt(column + forward[0] + left[0], row + forward[1] + left[1]);
+        Entity rightEnemy = pieceAt(column + forward[0] - left[0], row + forward[1] - left[1]);
+        if (leftEnemy != null) addMouseDestination(column + forward[0] + left[0], row + forward[1] + left[1], true);
+        if (rightEnemy != null) addMouseDestination(column + forward[0] - left[0], row + forward[1] - left[1], true);
+        viewModel.setGameMessage("Choose a highlighted square.");
+    }
+
+    private Command mouseActionForSquare(Entity player, int column, int row, int square) {
+        int targetColumn = square % BOARD_SIZE;
+        int targetRow = square / BOARD_SIZE;
+        int deltaColumn = targetColumn - column;
+        int deltaRow = targetRow - row;
+        FacingDirection facing = Facing.MAPPER.get(player).getDirection();
+        int[] forward = vector(facing);
+        int[] left = {-forward[1], forward[0]};
+
+        if (deltaColumn == forward[0] && deltaRow == forward[1]) return Command.UP;
+        if (deltaColumn == -forward[0] && deltaRow == -forward[1]) return Command.DOWN;
+        if (deltaColumn == left[0] && deltaRow == left[1]) return Command.LEFT;
+        if (deltaColumn == -left[0] && deltaRow == -left[1]) return Command.RIGHT;
+        if (deltaColumn == forward[0] + left[0] && deltaRow == forward[1] + left[1]
+            && pieceAt(targetColumn, targetRow) != null) return Command.CAPTURE_LEFT;
+        if (deltaColumn == forward[0] - left[0] && deltaRow == forward[1] - left[1]
+            && pieceAt(targetColumn, targetRow) != null) return Command.CAPTURE_RIGHT;
+        return null;
+    }
+
+    private void addMouseDestination(int column, int row, boolean allowed) {
+        if (allowed && isOpen(column, row)) {
+            mouseDestinationMarkers.add(createMouseMarker(
+                row * BOARD_SIZE + column,
+                new Color(0.25f, 0.75f, 1f, 0.42f)
+            ));
+        }
+    }
+
+    private boolean isEmpty(int column, int row) {
+        return isOpen(column, row) && pieceAt(column, row) == null;
+    }
+
+    private Entity createMouseMarker(int square, Color color) {
+        int column = square % BOARD_SIZE;
+        int row = square / BOARD_SIZE;
+        Entity marker = getEngine().createEntity();
+        marker.add(new Transform(
+            new Vector2(boardLeft + column * CELL_SIZE, boardBottom + row * CELL_SIZE),
+            3,
+            new Vector2(CELL_SIZE, CELL_SIZE),
+            new Vector2(1f, 1f),
+            0f,
+            0f
+        ));
+        marker.add(new Graphic(predictionRegion, color));
+        getEngine().addEntity(marker);
+        return marker;
+    }
+
+    private void clearMouseSelection() {
+        mouseSelectedSquare = -1;
+        if (mouseSelectedMarker != null) getEngine().removeEntity(mouseSelectedMarker);
+        mouseSelectedMarker = null;
+        for (Entity marker : mouseDestinationMarkers) getEngine().removeEntity(marker);
+        mouseDestinationMarkers.clear();
+    }
+
     private Entity findThreateningPiece(int column, int row) {
         Position position = createEnginePosition(column, row, null);
         int targetSquare = row * BOARD_SIZE + column;
@@ -406,6 +543,13 @@ public final class ChessPieceSystem extends EntitySystem {
         return (int) Math.floor((position - boardOrigin) / CELL_SIZE);
     }
 
+    private int squareAt(float worldX, float worldY) {
+        int column = cell(worldX, boardLeft);
+        int row = cell(worldY, boardBottom);
+        if (!isOpen(column, row)) return -1;
+        return row * BOARD_SIZE + column;
+    }
+
     private static FacingDirection rotate(FacingDirection direction, boolean clockwise) {
         return switch (direction) {
             case UP -> clockwise ? FacingDirection.RIGHT : FacingDirection.LEFT;
@@ -417,10 +561,10 @@ public final class ChessPieceSystem extends EntitySystem {
 
     private static int[] vector(FacingDirection direction) {
         return switch (direction) {
-            case UP -> new int[] {0, 1};
-            case DOWN -> new int[] {0, -1};
-            case LEFT -> new int[] {-1, 0};
-            case RIGHT -> new int[] {1, 0};
+            case UP -> new int[]{0, 1};
+            case DOWN -> new int[]{0, -1};
+            case LEFT -> new int[]{-1, 0};
+            case RIGHT -> new int[]{1, 0};
         };
     }
 

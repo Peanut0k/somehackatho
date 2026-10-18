@@ -1,6 +1,7 @@
 package io.github.com.quillraven.ui.view;
 
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -136,10 +137,22 @@ public final class GameView extends View<GameViewModel> {
 
     public void showArenaResult(String text) {
         arenaResultLabel.setText(text);
+        arenaResultLabel.setColor(InfernalUi.PALE);
         arenaResultLabel.pack();
         arenaResultLabel.setPosition(
             (stage.getWidth() - arenaResultLabel.getWidth()) * 0.5f,
             stage.getHeight() - arenaResultLabel.getHeight() - 5f
+        );
+        arenaResultLabel.setVisible(true);
+    }
+
+    public void showGameOver() {
+        arenaResultLabel.setText("GAME OVER\nPress any key");
+        arenaResultLabel.setColor(Color.RED);
+        arenaResultLabel.pack();
+        arenaResultLabel.setPosition(
+            (stage.getWidth() - arenaResultLabel.getWidth()) * 0.5f,
+            (stage.getHeight() - arenaResultLabel.getHeight()) * 0.5f
         );
         arenaResultLabel.setVisible(true);
     }

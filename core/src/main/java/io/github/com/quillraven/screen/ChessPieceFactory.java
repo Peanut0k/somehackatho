@@ -19,7 +19,6 @@ import io.github.com.quillraven.component.Facing;
 import io.github.com.quillraven.component.Graphic;
 import io.github.com.quillraven.component.Physic;
 import io.github.com.quillraven.component.Transform;
-import io.github.com.quillraven.ldtk.LdtkMap;
 import io.github.com.quillraven.chessengine.Side;
 
 import java.util.EnumMap;
@@ -29,25 +28,32 @@ import java.util.Map;
 public final class ChessPieceFactory implements Disposable {
     private static final int BOARD_SIZE = 8;
     private static final int PIECE_SIZE = 16;
+    public static final float ARENA_CELL_SIZE = 32f;
+    public static final float ARENA_BOARD_LEFT = 80f;
+    public static final float ARENA_BOARD_BOTTOM = 0f;
+    private static final Color IVORY = new Color(0.96f, 0.9f, 0.76f, 1f);
     private static final Color DARK = new Color(0.68f, 0.72f, 0.82f, 1f);
+    private static final Color OUTLINE = new Color(0.07f, 0.08f, 0.11f, 1f);
 
     private final Texture boardTexture;
     private final Texture predictionTexture;
-    private final Map<PieceType, Texture> pieces = new EnumMap<>(PieceType.class);
+    private final Map<PieceType, Texture> playerPieces = new EnumMap<>(PieceType.class);
+    private final Map<PieceType, Texture> enemyPieces = new EnumMap<>(PieceType.class);
     private final Map<String, Texture> pieceTextures = new HashMap<>();
 
     public ChessPieceFactory() {
         boardTexture = createBoardTexture();
         predictionTexture = createPredictionTexture();
         for (PieceType type : PieceType.values()) {
+            playerPieces.put(type, createPieceTexture(type, IVORY));
             String path = pieceTexturePath(type);
             Texture texture = pieceTextures.computeIfAbsent(path, ChessPieceFactory::loadPieceTexture);
-            pieces.put(type, texture);
+            enemyPieces.put(type, texture);
         }
     }
 
     public TextureRegion getPawnRegion() {
-        return new TextureRegion(pieces.get(PieceType.PAWN));
+        return new TextureRegion(playerPieces.get(PieceType.PAWN));
     }
 
     public TextureRegion getPredictionRegion() {
@@ -58,24 +64,23 @@ public final class ChessPieceFactory implements Disposable {
         return new TextureRegion(boardTexture);
     }
 
-    public TextureRegion getPieceRegion(io.github.com.quillraven.chessengine.PieceType type) {
-        return new TextureRegion(pieces.get(PieceType.valueOf(type.name())));
+    public TextureRegion getPieceRegion(io.github.com.quillraven.chessengine.PieceType type, Side side) {
+        Map<PieceType, Texture> sidePieces = side == Side.WHITE ? playerPieces : enemyPieces;
+        return new TextureRegion(sidePieces.get(PieceType.valueOf(type.name())));
+    }
+
+    private TextureRegion getEnemyPieceRegion(PieceType type) {
+        return new TextureRegion(enemyPieces.get(type));
     }
 
     public Color getPieceColor(Side side) {
         return side == Side.WHITE ? Color.WHITE.cpy() : DARK.cpy();
     }
 
-    public void createStartingPosition(Engine engine, World world, LdtkMap map, Entity player) {
-        int cell = PIECE_SIZE;
-        float left = (map.getWidth() - BOARD_SIZE * cell) * 0.5f;
-        float bottom = (map.getHeight() - BOARD_SIZE * cell) * 0.5f;
-        Vector2 boardSize = new Vector2(BOARD_SIZE * cell, BOARD_SIZE * cell);
-        Entity board = engine.createEntity();
-        board.add(new Transform(new Vector2(left, bottom), 0, boardSize, new Vector2(1f, 1f), 0f, 0f));
-        board.add(new Graphic(new TextureRegion(boardTexture), Color.WHITE.cpy()));
-        engine.addEntity(board);
-
+    public void createStartingPosition(Engine engine, World world, Entity player) {
+        float cell = ARENA_CELL_SIZE;
+        float left = ARENA_BOARD_LEFT;
+        float bottom = ARENA_BOARD_BOTTOM;
         setPosition(player, left + 4.5f * cell, bottom + 1.5f * cell);
         Facing.MAPPER.get(player).setDirection(Facing.FacingDirection.UP);
         for (int column = 0; column < BOARD_SIZE; column++) {
@@ -109,12 +114,12 @@ public final class ChessPieceFactory implements Disposable {
         int row,
         PieceType type
     ) {
-        float x = left + column * PIECE_SIZE;
-        float y = bottom + row * PIECE_SIZE;
+        float x = left + column * ARENA_CELL_SIZE;
+        float y = bottom + row * ARENA_CELL_SIZE;
         Entity entity = engine.createEntity();
         entity.add(new Transform(new Vector2(x, y), 2,
-            new Vector2(PIECE_SIZE, PIECE_SIZE), new Vector2(1f, 1f), 0f, 0f));
-        entity.add(new Graphic(new TextureRegion(pieces.get(type)), getPieceColor(Side.BLACK)));
+            new Vector2(ARENA_CELL_SIZE, ARENA_CELL_SIZE), new Vector2(1f, 1f), 0f, 0f));
+        entity.add(new Graphic(getEnemyPieceRegion(type), getPieceColor(Side.BLACK)));
         entity.add(new ChessPiece(toChessPieceType(type)));
         entity.add(new Facing(Facing.FacingDirection.DOWN));
 
@@ -124,7 +129,8 @@ public final class ChessPieceFactory implements Disposable {
         Body body = world.createBody(bodyDef);
         body.setUserData(entity);
         PolygonShape shape = new PolygonShape();
-        shape.setAsBox(5f, 5f, new Vector2(PIECE_SIZE * 0.5f, PIECE_SIZE * 0.5f), 0f);
+        shape.setAsBox(10f, 10f,
+            new Vector2(ARENA_CELL_SIZE * 0.5f, ARENA_CELL_SIZE * 0.5f), 0f);
         body.createFixture(shape, 0f);
         shape.dispose();
         entity.add(new Physic(body, new Vector2(body.getPosition())));
@@ -146,6 +152,16 @@ public final class ChessPieceFactory implements Disposable {
         Transform.MAPPER.get(entity).getPosition().set(body.getPosition());
     }
 
+    private static Texture createPredictionTexture() {
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        Texture texture = new Texture(pixmap);
+        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        pixmap.dispose();
+        return texture;
+    }
+
     private static Texture createBoardTexture() {
         Pixmap pixmap = new Pixmap(BOARD_SIZE * PIECE_SIZE, BOARD_SIZE * PIECE_SIZE, Pixmap.Format.RGBA8888);
         Color light = new Color(0.78f, 0.72f, 0.58f, 1f);
@@ -162,16 +178,6 @@ public final class ChessPieceFactory implements Disposable {
         return texture;
     }
 
-    private static Texture createPredictionTexture() {
-        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
-        Texture texture = new Texture(pixmap);
-        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        pixmap.dispose();
-        return texture;
-    }
-
     private static Texture loadPieceTexture(String path) {
         if (!Gdx.files.internal(path).exists()) {
             throw new GdxRuntimeException("Chess piece texture is missing: " + path);
@@ -179,6 +185,60 @@ public final class ChessPieceFactory implements Disposable {
         Texture texture = new Texture(Gdx.files.internal(path));
         texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
         return texture;
+    }
+
+    private static Texture createPieceTexture(PieceType type, Color fill) {
+        Pixmap pixmap = new Pixmap(PIECE_SIZE, PIECE_SIZE, Pixmap.Format.RGBA8888);
+        pixmap.setBlending(Pixmap.Blending.None);
+        pixmap.setColor(0f, 0f, 0f, 0f);
+        pixmap.fill();
+        drawPiece(pixmap, type, OUTLINE);
+        drawPiece(pixmap, type, fill);
+        pixmap.setColor(OUTLINE);
+        pixmap.fillRectangle(3, 13, 10, 2);
+        Texture texture = new Texture(pixmap);
+        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        pixmap.dispose();
+        return texture;
+    }
+
+    private static void drawPiece(Pixmap pixmap, PieceType type, Color color) {
+        pixmap.setColor(color);
+        switch (type) {
+            case PAWN -> {
+                pixmap.fillCircle(8, 4, 3);
+                pixmap.fillTriangle(4, 10, 12, 10, 14, 13);
+                pixmap.fillRectangle(3, 13, 10, 2);
+            }
+            case ROOK -> {
+                pixmap.fillRectangle(4, 5, 8, 8);
+                pixmap.fillRectangle(3, 3, 3, 4);
+                pixmap.fillRectangle(7, 3, 3, 4);
+                pixmap.fillRectangle(11, 3, 3, 4);
+                pixmap.fillRectangle(2, 13, 12, 2);
+            }
+            case KNIGHT -> {
+                pixmap.fillTriangle(3, 13, 13, 13, 11, 4);
+                pixmap.fillTriangle(11, 4, 13, 13, 6, 7);
+                pixmap.fillCircle(9, 5, 1);
+            }
+            case BISHOP -> {
+                pixmap.fillTriangle(3, 13, 13, 13, 8, 5);
+                pixmap.fillCircle(8, 4, 2);
+                pixmap.drawLine(6, 7, 10, 11);
+            }
+            case QUEEN -> {
+                pixmap.fillTriangle(3, 13, 13, 13, 8, 6);
+                pixmap.fillCircle(4, 4, 2);
+                pixmap.fillCircle(8, 3, 2);
+                pixmap.fillCircle(12, 4, 2);
+            }
+            case KING -> {
+                pixmap.fillTriangle(3, 13, 13, 13, 8, 6);
+                pixmap.fillRectangle(7, 2, 2, 7);
+                pixmap.fillRectangle(5, 4, 6, 2);
+            }
+        }
     }
 
     private static String pieceTexturePath(PieceType type) {
@@ -195,6 +255,7 @@ public final class ChessPieceFactory implements Disposable {
     public void dispose() {
         boardTexture.dispose();
         predictionTexture.dispose();
+        for (Texture texture : playerPieces.values()) texture.dispose();
         for (Texture texture : pieceTextures.values()) texture.dispose();
     }
 

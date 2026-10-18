@@ -5,18 +5,22 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import io.github.com.quillraven.system.ChessDuelSystem;
+import io.github.com.quillraven.system.ChessPieceSystem;
 
 import java.util.function.Predicate;
 
 public final class ChessMouseController extends InputAdapter {
     private final Viewport viewport;
     private final ChessDuelSystem chessDuelSystem;
+    private final ChessPieceSystem chessPieceSystem;
     private final Predicate<Vector2> onHubClick;
 
     public ChessMouseController(Viewport viewport, ChessDuelSystem chessDuelSystem,
+                                ChessPieceSystem chessPieceSystem,
                                 Predicate<Vector2> onHubClick) {
         this.viewport = viewport;
         this.chessDuelSystem = chessDuelSystem;
+        this.chessPieceSystem = chessPieceSystem;
         this.onHubClick = onHubClick;
     }
 
@@ -33,6 +37,10 @@ public final class ChessMouseController extends InputAdapter {
                 return true;
             }
             return false;
+        }
+        if (button == Input.Buttons.LEFT && chessPieceSystem.isArenaActive()) {
+            chessPieceSystem.handleMouseClick(worldPosition.x, worldPosition.y);
+            return true;
         }
         return button == Input.Buttons.LEFT && onHubClick.test(worldPosition);
     }

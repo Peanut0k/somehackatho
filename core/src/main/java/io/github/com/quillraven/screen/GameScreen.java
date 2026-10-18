@@ -134,7 +134,8 @@ public final class GameScreen extends ScreenAdapter {
         triggerSystem = new TriggerSystem(this::requestPawnArenaEntry, this::onChallengerChanged,
             this::onArenaPortalChanged);
         controllerSystem = new ControllerSystem(chessPieceSystem, chessDuelSystem, this::handleInteraction);
-        mouseController = new ChessMouseController(game.getViewport(), chessDuelSystem, this::handleHubClick);
+        mouseController = new ChessMouseController(
+            game.getViewport(), chessDuelSystem, chessPieceSystem, this::handleHubClick);
         gameView = new GameView(stage, skin, viewModel, infernalUi);
 
         engine.addSystem(chessPieceSystem);
@@ -161,16 +162,20 @@ public final class GameScreen extends ScreenAdapter {
         ldtkService.setMapChangeConsumer(map -> {
             entityConfigurator.createDefaultPlayer(map);
             engine.getSystem(RenderSystem.class).setMap(map);
-            engine.getSystem(CameraSystem.class).setMap(map);
+            engine.getSystem(CameraSystem.class).setMap(
+                map,
+                PAWN_ARENA_LEVEL.equals(activeLevel)
+            );
             audioService.setMap(map);
             chessPieceSystem.setMap(map);
             controllerSystem.setPawnArena(PAWN_ARENA_LEVEL.equals(activeLevel));
             boolean pawnArena = PAWN_ARENA_LEVEL.equals(activeLevel);
+            chessPieceSystem.setArenaActive(pawnArena);
             setPlayerAppearance(pawnArena);
             if (pawnArena) {
                 ImmutableArray<Entity> players = engine.getEntitiesFor(Family.all(Player.class).get());
                 if (players.size() > 0) {
-                    chessPieceFactory.createStartingPosition(engine, physicsWorld, map, players.first());
+                    chessPieceFactory.createStartingPosition(engine, physicsWorld, players.first());
                     chessPieceSystem.initializeBoard();
                 }
             } else {
@@ -193,7 +198,7 @@ public final class GameScreen extends ScreenAdapter {
                 ? "Chessboard: capture the black king."
                 : "Explore the hub, challenge chess players, and find the pawn portal.");
             viewModel.setControls(PAWN_ARENA_LEVEL.equals(activeLevel)
-                ? "W/S MOVE  |  A/D TURN  |  Q/R CAPTURE"
+                ? "CLICK PAWN, THEN SQUARE  |  CLICK SIDE TO TURN  |  W/S MOVE, A/D TURN, Q/R CAPTURE"
                 : "WASD MOVE  |  E INTERACT  |  CLICK CHALLENGER");
         });
 
@@ -217,7 +222,10 @@ public final class GameScreen extends ScreenAdapter {
             player.remove(Animation2D.class);
             player.remove(Fsm.class);
             graphic.setRegion(chessPieceFactory.getPawnRegion());
-            transform.getSize().set(16f, 16f);
+            transform.getSize().set(
+                ChessPieceFactory.ARENA_CELL_SIZE,
+                ChessPieceFactory.ARENA_CELL_SIZE
+            );
         } else {
             if (playerAnimation != null) player.add(playerAnimation);
             if (playerFsm != null) player.add(playerFsm);
@@ -260,9 +268,11 @@ public final class GameScreen extends ScreenAdapter {
         finishBoardMotions();
         arenaResultPending = true;
         arenaResultWasVictory = victory;
-        gameView.showArenaResult(victory
-            ? "Ruin challenge complete - press any key"
-            : "Defeated - press any key");
+        if (victory) {
+            gameView.showArenaResult("Ruin challenge complete - press any key");
+        } else {
+            gameView.showGameOver();
+        }
     }
 
     private void dismissResultWithKeyboard() {
@@ -300,7 +310,11 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void onArenaPortalChanged(Entity portal) {
-        if (!OPEN_WORLD_LEVEL.equals(activeLevel)) return;
+        if (!OPEN_WORLD_LEVEL.equals(activeLevel)) {
+            nearbyArenaPortal = null;
+            updateInteractionPrompt();
+            return;
+        }
         nearbyArenaPortal = portal;
         updateInteractionPrompt();
     }
@@ -363,7 +377,7 @@ public final class GameScreen extends ScreenAdapter {
         if (result == ChessDuelSystem.Result.LOSS) {
             finishBoardMotions();
             duelResultPending = true;
-            gameView.showArenaResult("Checkmate - press any key");
+            gameView.showGameOver();
             return;
         }
         gameView.setDuelActive(false);

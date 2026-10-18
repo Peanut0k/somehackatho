@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.FPSLogger;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -33,6 +34,7 @@ public class GdxGame extends Game {
     private OrthographicCamera camera;
     private Viewport viewport;
     private InputMultiplexer inputMultiplexer;
+    private final FPSLogger fpsLogger = new FPSLogger();
 
     private final Map<Class<? extends Screen>, Screen> screenCache = new HashMap<>();
 
@@ -89,6 +91,7 @@ public class GdxGame extends Game {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         super.render();
+        fpsLogger.log();
     }
 
     @Override
