@@ -724,6 +724,16 @@ public final class ChessPieceSystem extends EntitySystem {
         viewModel.setLives(lives);
     }
 
+    public void resetProgression() {
+        resetLives();
+        hintEarned = false;
+        hintAvailable = false;
+        doubleMoveEarned = false;
+        doubleMoveAvailable = false;
+        doubleMoveActionsRemaining = 0;
+        clearHintMarker();
+    }
+
     private Vector2 entityCenter(Entity entity) {
         Transform transform = Transform.MAPPER.get(entity);
         return target.set(transform.getPosition()).add(

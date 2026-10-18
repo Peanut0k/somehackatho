@@ -210,6 +210,7 @@ public final class GameScreen extends ScreenAdapter {
                 for (Entity challengerEntity : challengers) {
                     ChessChallenger challenger = ChessChallenger.MAPPER.get(challengerEntity);
                     challenger.setDefeated(defeatedChallengers.contains(challenger.getId()));
+                    challengerFactory.addCompletionMarker(engine, challengerEntity, challenger);
                 }
             }
             viewModel.setGameMessage(PAWN_ARENA_LEVEL.equals(activeLevel)
@@ -285,13 +286,22 @@ public final class GameScreen extends ScreenAdapter {
         if (!PAWN_ARENA_LEVEL.equals(activeLevel) || transitionPending) return;
         finishBoardMotions();
         gameView.setArenaActive(false);
-        arenaResultPending = true;
-        arenaResultWasVictory = victory;
-        viewModel.setControls("ARENA COMPLETE  |  PRESS ANY KEY TO RETURN TO THE HUB");
-        if (victory) {
-            gameView.showArenaResult("Ruin challenge complete - press any key");
-        } else {
-            gameView.showGameOver();
+        arenaResultPending = false;
+        transitionPending = true;
+        try {
+            if (victory) {
+                gameView.showResultMessage("Victory! Arena restarting.");
+                chessPieceSystem.resetLives();
+                changeLevel(PAWN_ARENA_LEVEL);
+            } else {
+                defeatedChallengers.clear();
+                chessPieceSystem.resetProgression();
+                gameView.hideArenaResult();
+                gameView.showResultMessage("Defeated. Returning to your spawn.");
+                changeLevel(OPEN_WORLD_LEVEL);
+            }
+        } finally {
+            transitionPending = false;
         }
     }
 
@@ -474,7 +484,7 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private static String hubControls() {
-        return "HUB  |  WASD / ARROWS MOVE  |  E CHALLENGE OR ENTER ARENA\nCLICK A DUELIST TO CHALLENGE";
+        return "HUB  |  WASD / ARROWS MOVE  |  SHIFT SPRINT\nE CHALLENGE OR ENTER ARENA  |  CLICK A DUELIST";
     }
 
     private void changeLevel(String levelIdentifier) {
@@ -570,6 +580,7 @@ public final class GameScreen extends ScreenAdapter {
         ldtkService.dispose();
         entityConfigurator.dispose();
         chessPieceFactory.dispose();
+        challengerFactory.dispose();
         infernalUi.dispose();
         stage.dispose();
     }

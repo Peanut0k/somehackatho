@@ -9,6 +9,7 @@ import io.github.com.peanut0k.component.Move;
 import io.github.com.peanut0k.component.Physic;
 
 public class PhysicMoveSystem extends IteratingSystem {
+    private static final float SPRINT_MULTIPLIER = 1.75f;
     private static final Vector2 TMP_VEC2 = new Vector2();
 
     public PhysicMoveSystem() {
@@ -26,7 +27,7 @@ public class PhysicMoveSystem extends IteratingSystem {
             return;
         }
 
-        float maxSpeed = move.getMaxSpeed();
+        float maxSpeed = move.getMaxSpeed() * (move.isSprinting() ? SPRINT_MULTIPLIER : 1f);
         TMP_VEC2.set(move.getDirection()).nor();
         body.setLinearVelocity(maxSpeed * TMP_VEC2.x, maxSpeed * TMP_VEC2.y);
     }

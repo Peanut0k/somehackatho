@@ -4,7 +4,7 @@ A small LibGDX prototype with a grassy hub, beginner-friendly chess puzzles, and
 
 ## Controls
 
-- In the hub, WASD or arrow keys: move
+- In the hub, WASD or arrow keys: move; hold Shift while moving to sprint.
 - Press E near a chess challenger to accept the challenge, or click the challenger
 - Press E near the glowing portal to enter the pawn arena
 - In a chess puzzle, click any white piece and then a legal destination. The on-screen guide explains every piece. Checkmate Black within the displayed move limit to win; otherwise the attempt ends when you run out of moves. Undo restores the position before your latest turn, including cancelling a pending Black reply. Press any key to return and retry with a different randomly selected puzzle position, or Backspace to give up.
@@ -14,7 +14,7 @@ A small LibGDX prototype with a grassy hub, beginner-friendly chess puzzles, and
 - Arena lives are shown as hearts, and your current facing direction appears as a small fixed indicator in the corner.
 - Hub interaction prompts appear beside the nearby challenger or portal.
 - A compact control guide stays visible at the bottom of the screen and updates for the hub, arena, and duels.
-- Mate-in-two and mate-in-three puzzles unlock one at a time, in increasing difficulty. Each stage has several puzzle positions; retries choose a different position from the previous attempt. Completing a puzzle marks its challenger defeated and grants one arena life.
+- Mate-in-two and mate-in-three puzzles unlock one at a time, in increasing difficulty. Each stage has several puzzle positions; retries choose a different position from the previous attempt. Completing a puzzle marks its challenger with a green check, marks them defeated, and grants one arena life.
 - Capturing the black king opens a simple "Ruin Challenge Complete" screen; losing all hearts opens the game-over screen. Both offer retry or return to the main menu.
 - Giving up a puzzle shows the game-over screen; press any key to return to the hub and retry it.
 - Each valid arena action takes one turn; one black piece moves after each player action unless Double Move is active.

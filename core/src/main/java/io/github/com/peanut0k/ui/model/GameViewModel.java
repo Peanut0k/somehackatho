@@ -10,7 +10,7 @@ public final class GameViewModel extends ViewModel {
 
     private String gameMessage = "Explore the hub, challenge chess players, and find the pawn portal.";
     private String enemyPrediction = "Enemy move: enter the arena";
-    private String controls = "HUB  |  WASD / ARROWS MOVE  |  E CHALLENGE OR ENTER ARENA\nCLICK A DUELIST TO CHALLENGE";
+    private String controls = "HUB  |  WASD / ARROWS MOVE  |  SHIFT SPRINT\nE CHALLENGE OR ENTER ARENA  |  CLICK A DUELIST";
     private int lives = 2;
 
     public GameViewModel(GdxGame game) {

@@ -10,5 +10,6 @@ public enum Command {
     INTERACT,
     SELECT,
     CANCEL,
-    SURRENDER
+    SURRENDER,
+    SPRINT
 }

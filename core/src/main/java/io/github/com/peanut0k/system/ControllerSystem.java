@@ -16,6 +16,7 @@ public final class ControllerSystem extends IteratingSystem {
     private final ChessDuelSystem chessDuelSystem;
     private final Runnable onAcceptChallenge;
     private final EnumSet<Command> heldMovement = EnumSet.noneOf(Command.class);
+    private boolean sprintHeld;
     private boolean pawnArena;
     private boolean chessDuel;
 
@@ -40,12 +41,16 @@ public final class ControllerSystem extends IteratingSystem {
     }
 
     private void clearControllerInput() {
+        sprintHeld = false;
         for (Entity entity : getEntities()) {
             Controller controller = Controller.MAPPER.get(entity);
             controller.getPressedCommands().clear();
             controller.getReleasedCommands().clear();
             Move move = Move.MAPPER.get(entity);
-            if (move != null) move.getDirection().setZero();
+            if (move != null) {
+                move.getDirection().setZero();
+                move.setSprinting(false);
+            }
         }
     }
 
@@ -74,12 +79,16 @@ public final class ControllerSystem extends IteratingSystem {
         for (Command command : controller.getPressedCommands()) {
             switch (command) {
                 case UP, DOWN, LEFT, RIGHT -> heldMovement.add(command);
+                case SPRINT -> sprintHeld = true;
                 case INTERACT, SELECT -> acceptChallenge = true;
                 case CANCEL, CAPTURE_LEFT, CAPTURE_RIGHT, SURRENDER -> {
                 }
             }
         }
-        for (Command command : controller.getReleasedCommands()) heldMovement.remove(command);
+        for (Command command : controller.getReleasedCommands()) {
+            if (command == Command.SPRINT) sprintHeld = false;
+            else heldMovement.remove(command);
+        }
         controller.getPressedCommands().clear();
         controller.getReleasedCommands().clear();
 
@@ -87,6 +96,7 @@ public final class ControllerSystem extends IteratingSystem {
 
         Move move = Move.MAPPER.get(entity);
         if (move == null) return;
+        move.setSprinting(sprintHeld);
         float directionX = (heldMovement.contains(Command.RIGHT) ? 1f : 0f)
             - (heldMovement.contains(Command.LEFT) ? 1f : 0f);
         float directionY = (heldMovement.contains(Command.UP) ? 1f : 0f)

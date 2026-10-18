@@ -2,6 +2,7 @@ package io.github.com.peanut0k.component;
 
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.ComponentMapper;
+import com.badlogic.ashley.core.Entity;
 
 public final class ChessChallenger implements Component {
     public static final ComponentMapper<ChessChallenger> MAPPER =
@@ -10,6 +11,7 @@ public final class ChessChallenger implements Component {
     private final String id;
     private final String name;
     private boolean defeated;
+    private Entity completionMarker;
 
     public ChessChallenger(String id, String name, boolean defeated) {
         this.id = id;
@@ -31,6 +33,22 @@ public final class ChessChallenger implements Component {
 
     public void setDefeated(boolean defeated) {
         this.defeated = defeated;
+        updateCompletionMarker();
+    }
+
+    public void setCompletionMarker(Entity completionMarker) {
+        this.completionMarker = completionMarker;
+        updateCompletionMarker();
+    }
+
+    public boolean hasCompletionMarker() {
+        return completionMarker != null;
+    }
+
+    private void updateCompletionMarker() {
+        if (completionMarker == null) return;
+        Graphic graphic = Graphic.MAPPER.get(completionMarker);
+        if (graphic != null) graphic.getColor().a = defeated ? 1f : 0f;
     }
 
 }

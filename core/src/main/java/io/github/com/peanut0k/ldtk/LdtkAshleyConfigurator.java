@@ -363,7 +363,12 @@ public final class LdtkAshleyConfigurator implements Disposable {
         physic.getPrevPosition().set(target);
         Transform.MAPPER.get(player).getPosition().set(target);
         Move move = Move.MAPPER.get(player);
-        if (move != null) move.getDirection().setZero();
+        if (move != null) {
+            move.getDirection().setZero();
+            move.setSprinting(false);
+        }
+        Facing facing = Facing.MAPPER.get(player);
+        if (facing != null) facing.setDirection(FacingDirection.DOWN);
         Controller controller = Controller.MAPPER.get(player);
         if (controller != null) {
             controller.getPressedCommands().clear();
