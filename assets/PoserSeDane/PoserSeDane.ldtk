@@ -11,7 +11,7 @@
 	"iid": "0b9914f0-bde0-11f1-ab4e-03595a948c37",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 497751,
-	"nextUid": 169,
+	"nextUid": 170,
 	"identifierStyle": "Capitalize",
 	"toc": [{
 		"identifier": "Player",
@@ -3190,9 +3190,9 @@
 			"color": "#733E39",
 			"renderMode": "Tile",
 			"showName": true,
-			"tilesetId": 98,
+			"tilesetId": 169,
 			"tileRenderMode": "FitInside",
-			"tileRect": { "tilesetUid": 98, "x": 0, "y": 0, "w": 32, "h": 32 },
+			"tileRect": { "tilesetUid": 169, "x": 0, "y": 0, "w": 32, "h": 32 },
 			"uiTileRect": null,
 			"nineSliceBorders": [],
 			"maxCount": 0,
@@ -3872,25 +3872,6 @@
 			"cachedPixelData": { "opaqueTiles": "0", "averageColors": "5578" }
 		},
 		{
-			"__cWid": 1,
-			"__cHei": 1,
-			"identifier": "Jitka",
-			"uid": 98,
-			"relPath": "stáhnout (4).png",
-			"embedAtlas": null,
-			"pxWid": 32,
-			"pxHei": 32,
-			"tileGridSize": 32,
-			"spacing": 0,
-			"padding": 0,
-			"tags": [],
-			"tagsSourceEnumUid": null,
-			"enumTags": [],
-			"customData": [],
-			"savedSelections": [],
-			"cachedPixelData": { "opaqueTiles": "0", "averageColors": "4ba9" }
-		},
-		{
 			"__cWid": 2,
 			"__cHei": 2,
 			"identifier": "Download",
@@ -4557,6 +4538,25 @@
 			"customData": [],
 			"savedSelections": [],
 			"cachedPixelData": { "opaqueTiles": "0", "averageColors": "6532" }
+		},
+		{
+			"__cWid": 1,
+			"__cHei": 1,
+			"identifier": "Jitka2",
+			"uid": 169,
+			"relPath": "../jitka.png",
+			"embedAtlas": null,
+			"pxWid": 32,
+			"pxHei": 32,
+			"tileGridSize": 32,
+			"spacing": 0,
+			"padding": 0,
+			"tags": [],
+			"tagsSourceEnumUid": null,
+			"enumTags": [],
+			"customData": [],
+			"savedSelections": [],
+			"cachedPixelData": { "opaqueTiles": "0", "averageColors": "4ba9" }
 		}
 	], "enums": [], "externalEnums": [], "levelFields": [] },
 	"levels": [
@@ -4657,51 +4657,35 @@
 					"entityInstances": [
 						{
 							"__identifier": "Kupec",
-							"__grid": [204,443],
+							"__grid": [607,114],
 							"__pivot": [0,0],
 							"__tags": [],
-							"__tile": { "tilesetUid": 98, "x": 0, "y": 0, "w": 32, "h": 32 },
-							"__smartColor": "#733E39",
-							"iid": "7495d710-bde0-11f1-a8ab-ddcd94e8bb4a",
-							"width": 24,
-							"height": 24,
-							"defUid": 99,
-							"px": [204,443],
-							"fieldInstances": [{ "__identifier": "type", "__type": "String", "__value": "prop", "__tile": null, "defUid": 100, "realEditorValues": [] }],
-							"__worldX": -1508,
-							"__worldY": 30
-						},
-						{
-							"__identifier": "Kupec",
-							"__grid": [606,109],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": { "tilesetUid": 98, "x": 0, "y": 0, "w": 32, "h": 32 },
+							"__tile": { "tilesetUid": 169, "x": 0, "y": 0, "w": 32, "h": 32 },
 							"__smartColor": "#733E39",
 							"iid": "7784e0b0-bde0-11f1-a8ab-7f0e8c1a7292",
 							"width": 24,
 							"height": 24,
 							"defUid": 99,
-							"px": [606,109],
+							"px": [607,114],
 							"fieldInstances": [{ "__identifier": "type", "__type": "String", "__value": "prop", "__tile": null, "defUid": 100, "realEditorValues": [] }],
-							"__worldX": -1106,
-							"__worldY": -304
+							"__worldX": -1105,
+							"__worldY": -299
 						},
 						{
 							"__identifier": "Kupec",
-							"__grid": [825,306],
+							"__grid": [832,305],
 							"__pivot": [0,0],
 							"__tags": [],
-							"__tile": { "tilesetUid": 98, "x": 0, "y": 0, "w": 32, "h": 32 },
+							"__tile": { "tilesetUid": 169, "x": 0, "y": 0, "w": 32, "h": 32 },
 							"__smartColor": "#733E39",
 							"iid": "56b3f850-bde0-11f1-a8ab-a7238456e0ce",
 							"width": 24,
 							"height": 24,
 							"defUid": 99,
-							"px": [825,306],
+							"px": [832,305],
 							"fieldInstances": [{ "__identifier": "type", "__type": "String", "__value": "prop", "__tile": null, "defUid": 100, "realEditorValues": [] }],
-							"__worldX": -887,
-							"__worldY": -107
+							"__worldX": -880,
+							"__worldY": -108
 						},
 						{
 							"__identifier": "Teleportt",
@@ -4745,6 +4729,22 @@
 							],
 							"__worldX": -1346,
 							"__worldY": -157
+						},
+						{
+							"__identifier": "Kupec",
+							"__grid": [203,443],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 169, "x": 0, "y": 0, "w": 32, "h": 32 },
+							"__smartColor": "#733E39",
+							"iid": "7d948140-bde0-11f1-8067-55c759ca5366",
+							"width": 24,
+							"height": 24,
+							"defUid": 99,
+							"px": [203,443],
+							"fieldInstances": [{ "__identifier": "type", "__type": "String", "__value": "prop", "__tile": null, "defUid": 100, "realEditorValues": [] }],
+							"__worldX": -1509,
+							"__worldY": 30
 						}
 					]
 				},

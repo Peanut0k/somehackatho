@@ -128,7 +128,7 @@ public final class GameScreen extends ScreenAdapter {
             }
         };
         chessPieceFactory = new ChessPieceFactory();
-        challengerFactory = new ChessChallengerFactory(game.getAssetService());
+        challengerFactory = new ChessChallengerFactory();
         entityConfigurator = new LdtkAshleyConfigurator(engine, physicsWorld, game.getAssetService(),
             lightingSystem.getRayHandler());
         keyboardController = new KeyboardController(GameControllerState.class, engine, null);
@@ -363,8 +363,11 @@ public final class GameScreen extends ScreenAdapter {
             } else if (isPuzzleProgressionLocked()) {
                 gameView.setCenteredInteractionMessage("Complete earlier chess lessons first");
             } else {
+                int moveLimit = ChessDuelSystem.getPuzzleMoveLimit(defeatedChallengers.size());
                 gameView.setCenteredInteractionMessage(
-                    "E: Challenge " + details.getName() + "\nWin: +1 life");
+                    "E: Challenge " + details.getName()
+                        + "\nObjective: Checkmate Black in " + moveLimit + " moves"
+                        + "\nReward: +1 life");
             }
         } else if (nearbyArenaPortal != null) {
             gameView.setCenteredInteractionMessage("E: Enter Arena");

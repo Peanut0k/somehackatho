@@ -7,10 +7,12 @@ public final class GameViewModel extends ViewModel {
     public static final String ENEMY_PREDICTION = "enemyPrediction";
     public static final String LIVES = "lives";
     public static final String CONTROLS = "controls";
+    public static final String PUZZLE_MOVES = "puzzleMoves";
 
     private String gameMessage = "Explore the hub, challenge chess players, and find the pawn portal.";
     private String enemyPrediction = "Enemy move: enter the arena";
     private String controls = "HUB  |  WASD / ARROWS MOVE  |  SHIFT SPRINT\nE CHALLENGE OR ENTER ARENA  |  CLICK A DUELIST";
+    private String puzzleMoves = "";
     private int lives = 2;
 
     public GameViewModel(GdxGame game) {
@@ -55,5 +57,16 @@ public final class GameViewModel extends ViewModel {
 
     public String getControls() {
         return controls;
+    }
+
+    public void setPuzzleMoves(int remaining, int total) {
+        String value = "MOVES LEFT: " + remaining + " / " + total;
+        if (puzzleMoves.equals(value)) return;
+        propertyChangeSupport.firePropertyChange(PUZZLE_MOVES, puzzleMoves, value);
+        puzzleMoves = value;
+    }
+
+    public String getPuzzleMoves() {
+        return puzzleMoves;
     }
 }

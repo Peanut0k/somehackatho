@@ -88,7 +88,7 @@ public final class ChessPieceFactory implements Disposable {
         float cell = ARENA_CELL_SIZE;
         float left = ARENA_BOARD_LEFT;
         float bottom = ARENA_BOARD_BOTTOM;
-        setPosition(player, left + 4.5f * cell, bottom + 1.5f * cell);
+        setPosition(player, left + 4f * cell, bottom + cell);
         Facing.MAPPER.get(player).setDirection(Facing.FacingDirection.UP);
         for (int column = 0; column < BOARD_SIZE; column++) {
             addPiece(engine, world, left, bottom, column, 6, PieceType.PAWN);
@@ -148,15 +148,17 @@ public final class ChessPieceFactory implements Disposable {
         return ChessPiece.Type.valueOf(type.name());
     }
 
-    private static void setPosition(Entity entity, float centerX, float centerY) {
+    private static void setPosition(Entity entity, float x, float y) {
         Body body = Physic.MAPPER.get(entity).getBody();
-        Vector2 center = body.getWorldCenter();
-        Vector2 position = body.getPosition();
-        body.setTransform(position.x + centerX - center.x, position.y + centerY - center.y, body.getAngle());
+        Transform transform = Transform.MAPPER.get(entity);
+        Vector2 target = new Vector2(x, y);
+        Vector2 offset = target.cpy().sub(transform.getPosition());
+        Vector2 bodyPosition = body.getPosition().cpy().add(offset);
+        body.setTransform(bodyPosition, body.getAngle());
         body.setLinearVelocity(0f, 0f);
         body.setAngularVelocity(0f);
-        Physic.MAPPER.get(entity).getPrevPosition().set(body.getPosition());
-        Transform.MAPPER.get(entity).getPosition().set(body.getPosition());
+        Physic.MAPPER.get(entity).getPrevPosition().set(bodyPosition);
+        transform.getPosition().set(target);
     }
 
     private static Texture createPredictionTexture() {

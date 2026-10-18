@@ -28,6 +28,7 @@ public final class GameView extends View<GameViewModel> {
     private Table controlsPanel;
     private Label controlsLabel;
     private String displayedControls;
+    private Label puzzleMovesLabel;
     private Label arenaResultLabel;
     private float toastTimeRemaining;
     private Label directionLabel;
@@ -57,6 +58,12 @@ public final class GameView extends View<GameViewModel> {
         directionLabel.setFontScale(0.23f);
         directionLabel.setColor(InfernalUi.GOLD);
         status.add(directionLabel).left().padTop(2f);
+        puzzleMovesLabel = new Label(viewModel.getPuzzleMoves(), skin, "small");
+        puzzleMovesLabel.setFontScale(0.28f);
+        puzzleMovesLabel.setColor(InfernalUi.GOLD);
+        puzzleMovesLabel.setVisible(false);
+        status.row();
+        status.add(puzzleMovesLabel).left().padTop(2f);
         add(status).top().left().pad(4f).row();
 
         controlsPanel = new Table();
@@ -127,6 +134,7 @@ public final class GameView extends View<GameViewModel> {
     protected void setupPropertyChanges() {
         viewModel.onPropertyChange(GameViewModel.LIVES, Integer.class, this::updateLives);
         viewModel.onPropertyChange(GameViewModel.CONTROLS, String.class, this::updateControls);
+        viewModel.onPropertyChange(GameViewModel.PUZZLE_MOVES, String.class, this::updatePuzzleMoves);
     }
 
     private void updateLives(int lives) {
@@ -143,7 +151,12 @@ public final class GameView extends View<GameViewModel> {
         if (duelActive == active) return;
         duelActive = active;
         livesTable.setVisible(!active);
+        puzzleMovesLabel.setVisible(active);
         refreshAbilityBar();
+    }
+
+    private void updatePuzzleMoves(String moves) {
+        puzzleMovesLabel.setText(moves);
     }
 
     public void setArenaActive(boolean active) {

@@ -3,6 +3,7 @@ package io.github.com.peanut0k.component;
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.ashley.core.Entity;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 public final class ChessChallenger implements Component {
     public static final ComponentMapper<ChessChallenger> MAPPER =
@@ -12,6 +13,8 @@ public final class ChessChallenger implements Component {
     private final String name;
     private boolean defeated;
     private Entity completionMarker;
+    private TextureRegion questRegion;
+    private TextureRegion completedRegion;
 
     public ChessChallenger(String id, String name, boolean defeated) {
         this.id = id;
@@ -36,8 +39,11 @@ public final class ChessChallenger implements Component {
         updateCompletionMarker();
     }
 
-    public void setCompletionMarker(Entity completionMarker) {
+    public void setCompletionMarker(Entity completionMarker, TextureRegion questRegion,
+                                    TextureRegion completedRegion) {
         this.completionMarker = completionMarker;
+        this.questRegion = questRegion;
+        this.completedRegion = completedRegion;
         updateCompletionMarker();
     }
 
@@ -48,7 +54,10 @@ public final class ChessChallenger implements Component {
     private void updateCompletionMarker() {
         if (completionMarker == null) return;
         Graphic graphic = Graphic.MAPPER.get(completionMarker);
-        if (graphic != null) graphic.getColor().a = defeated ? 1f : 0f;
+        if (graphic != null) {
+            graphic.setRegion(defeated ? completedRegion : questRegion);
+            graphic.getColor().a = 1f;
+        }
     }
 
 }

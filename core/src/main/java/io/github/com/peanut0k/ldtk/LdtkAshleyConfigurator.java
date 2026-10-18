@@ -50,6 +50,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
     private final AssetService assetService;
     private final RayHandler rayHandler;
     private final Texture portalTexture;
+    private final Texture arenaSignTexture;
     private Texture chessPawnTexture;
 
     public LdtkAshleyConfigurator(Engine engine, World physicsWorld, AssetService assetService, RayHandler rayHandler) {
@@ -58,6 +59,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
         this.assetService = assetService;
         this.rayHandler = rayHandler;
         this.portalTexture = createPortalTexture();
+        this.arenaSignTexture = createArenaSignTexture();
     }
 
     public void onLoadEntity(LdtkMap.EntityInstance instance) {
@@ -109,6 +111,9 @@ public final class LdtkAshleyConfigurator implements Disposable {
             createBody(entity, position, colliderWidth, colliderHeight, colliderCenterX,
                 colliderCenterY, BodyDef.BodyType.StaticBody, true);
             engine.addEntity(entity);
+            if ("teleportt".equalsIgnoreCase(name)) {
+                createArenaSign(position, new Vector2(width, height));
+            }
             return;
         }
 
@@ -213,6 +218,53 @@ public final class LdtkAshleyConfigurator implements Disposable {
         texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
         pixmap.dispose();
         return texture;
+    }
+
+    private static Texture createArenaSignTexture() {
+        Pixmap pixmap = new Pixmap(40, 15, Pixmap.Format.RGBA8888);
+        pixmap.setBlending(Pixmap.Blending.None);
+        pixmap.setColor(0.035f, 0.055f, 0.09f, 1f);
+        pixmap.fill();
+        pixmap.setColor(0.92f, 0.63f, 0.2f, 1f);
+        pixmap.drawRectangle(0, 0, 40, 15);
+        pixmap.setColor(0.96f, 0.86f, 0.57f, 1f);
+
+        String[] letters = {
+            "01110/10001/10001/11111/10001/10001/10001",
+            "11110/10001/10001/11110/10100/10010/10001",
+            "11111/10000/10000/11110/10000/10000/11111",
+            "10001/11001/10101/10011/10001/10001/10001",
+            "01110/10001/10001/11111/10001/10001/10001"
+        };
+        int x = 5;
+        for (String letter : letters) {
+            String[] rows = letter.split("/");
+            for (int row = 0; row < rows.length; row++) {
+                for (int column = 0; column < rows[row].length(); column++) {
+                    if (rows[row].charAt(column) == '1') {
+                        pixmap.drawPixel(x + column, 4 + row);
+                    }
+                }
+            }
+            x += 6;
+        }
+
+        Texture texture = new Texture(pixmap);
+        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        pixmap.dispose();
+        return texture;
+    }
+
+    private void createArenaSign(Vector2 portalPosition, Vector2 portalSize) {
+        Vector2 signSize = new Vector2(40f, 15f);
+        Vector2 signPosition = new Vector2(
+            portalPosition.x + (portalSize.x - signSize.x) * 0.5f,
+            portalPosition.y + portalSize.y + 3f
+        );
+        Entity sign = engine.createEntity();
+        sign.add(new Transform(signPosition, 4, signSize, new Vector2(1f, 1f), 0f, 0f));
+        sign.add(new Graphic(new TextureRegion(arenaSignTexture), Color.WHITE.cpy()));
+        engine.addEntity(sign);
     }
 
     private TextureRegion getChessPawnRegion() {
@@ -336,6 +388,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
         createBody(portal, position, size.x, size.y, size.x * 0.5f, size.y * 0.5f,
             BodyDef.BodyType.StaticBody, true);
         engine.addEntity(portal);
+        createArenaSign(position, size);
     }
 
     private static void positionExistingPlayer(Entity player, LdtkMap map) {
@@ -482,6 +535,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
     @Override
     public void dispose() {
         portalTexture.dispose();
+        arenaSignTexture.dispose();
         if (chessPawnTexture != null) chessPawnTexture.dispose();
     }
 }

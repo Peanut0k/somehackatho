@@ -30,11 +30,6 @@ public final class ChessDuelSystem {
     private static final int PIECE_Z = 5;
     private static final int MARKER_Z = 6;
     private static final float OPPONENT_MOVE_DELAY = 1f;
-    private static final String PIECE_GUIDE = String.join("\n",
-        "PIECES (White moves up)",
-        "Pawn: forward 1 (2 at start), captures diagonally; promotes.",
-        "Knight: L-jump over pieces. Bishop: diagonal. Rook: straight.",
-        "Queen: bishop + rook moves. King: one safe square; castling uses a rook.");
     private static final List<List<Puzzle>> PUZZLES = List.of(
         puzzleVariants(
             new Puzzle("8/8/8/8/8/8/8/k1KQ4 w - - 0 1", 2, "MATE (EASY)"),
@@ -120,6 +115,7 @@ public final class ChessDuelSystem {
         cursorSquare = 12;
         selectedSquare = -1;
         active = true;
+        updateMovesIndicator();
 
         Vector2 center = playerPosition.cpy().add(CELL_SIZE, CELL_SIZE);
         boardLeft = center.x - BOARD_SIZE * CELL_SIZE * 0.5f;
@@ -145,6 +141,13 @@ public final class ChessDuelSystem {
 
     public boolean isActive() {
         return active;
+    }
+
+    public static int getPuzzleMoveLimit(int puzzleIndex) {
+        if (puzzleIndex < 0 || puzzleIndex >= PUZZLES.size()) {
+            throw new IllegalArgumentException("No chess puzzle is configured at progression index " + puzzleIndex);
+        }
+        return PUZZLES.get(puzzleIndex).get(0).maxMoves;
     }
 
     public int getPuzzleIndex() {
@@ -290,6 +293,7 @@ public final class ChessDuelSystem {
         clearSelection();
         if (finishIfTerminal()) return;
         playerMovesUsed++;
+        updateMovesIndicator();
         if (playerMovesUsed >= puzzle.maxMoves) {
             viewModel.setGameMessage("Puzzle failed: no checkmate in " + puzzle.maxMoves + " moves. Try again.");
             end(Result.LOSS);
@@ -329,6 +333,7 @@ public final class ChessDuelSystem {
         java.util.Arrays.fill(pieces, null);
         position = Position.fromFen(undoFen);
         playerMovesUsed = movesBeforeUndo;
+        updateMovesIndicator();
         for (int square = 0; square < pieces.length; square++) {
             Piece piece = position.pieceAt(square);
             if (piece != null) createPiece(square, piece);
@@ -415,9 +420,13 @@ public final class ChessDuelSystem {
     }
 
     private String puzzleGuide() {
-        String guide = "PUZZLE " + (puzzleIndex + 1) + "/" + PUZZLE_COUNT + " - "
-            + puzzle.difficulty + " IN " + puzzle.maxMoves + "\n" + PIECE_GUIDE;
-        return guide + "\nCLICK PIECE, THEN DESTINATION\nESC: DESELECT  |  BACKSPACE: GIVE UP";
+        return "PUZZLE " + (puzzleIndex + 1) + "/" + PUZZLE_COUNT + " - " + puzzle.difficulty
+            + "\nOBJECTIVE: CHECKMATE BLACK IN " + puzzle.maxMoves + " MOVES"
+            + "\nCLICK PIECE, THEN DESTINATION\nESC: DESELECT  |  BACKSPACE: GIVE UP";
+    }
+
+    private void updateMovesIndicator() {
+        viewModel.setPuzzleMoves(puzzle.maxMoves - playerMovesUsed, puzzle.maxMoves);
     }
 
     private void clearSelection() {
