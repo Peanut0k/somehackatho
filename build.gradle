@@ -77,7 +77,7 @@ configure(subprojects) {
 
 subprojects {
   version = "$projectVersion"
-  ext.appName = 'mystictutorial'
+  ext.appName = 'Chess Explorer'
   repositories {
     mavenCentral()
     maven { url 'https://s01.oss.sonatype.org' }
@@ -90,4 +90,4 @@ subprojects {
   }
 }
 
-eclipse.project.name = 'mystictutorial' + '-parent'
+eclipse.project.name = 'Chess Explorer' + '-parent'

@@ -27,7 +27,7 @@ A small LibGDX prototype with a grassy hub, beginner-friendly chess puzzles, and
 
 ## Maps
 
-The game uses `PoserSeDane/PoserSeDane.ldtk` and its assets. It starts in the hub (`Level_0`); the placed `Kupec` merchants are chess challengers and use the alternate `assets/jitka.png` sprite. If there are no placed challengers, three defaults spawn around the player. The portal leads to `Level_1`; the arena places pieces directly on the existing 8×8 floor board and does not generate a replacement board. The player's chess pieces use their original procedural ivory art. Enemy pieces use the supplied `pawn.png`, `horse.png`, `rook.png`, `bishop.png`, `king.png`, and `queen.png` images; if `queen.png` is unavailable, a distinct generated queen is used instead of the rook. A placed `ChessPawn` entity is a static enemy pawn and falls back to `pawn.png` when it has no LDtk tile.
+The game uses `PoserSeDane/PoserSeDane.ldtk` and its assets. It starts in the hub (`Level_0`); the placed `Kupec` merchants are chess challengers and use the map's Jitka tileset art. If there are no placed challengers, three defaults spawn around the player. The portal leads to `Level_1`; the arena places pieces directly on the existing 8×8 floor board and does not generate a replacement board. The player's chess pieces use their original procedural ivory art. Enemy pieces use the supplied `pawn.png`, `horse.png`, `rook.png`, `bishop.png`, `king.png`, and `queen.png` images; if `queen.png` is unavailable, a distinct generated queen is used instead of the rook. A placed `ChessPawn` entity is a static enemy pawn and falls back to `pawn.png` when it has no LDtk tile.
 
 ### Chess challenger entity
 

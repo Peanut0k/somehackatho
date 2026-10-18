@@ -13,6 +13,7 @@ import io.github.com.peanut0k.GdxGame;
 import io.github.com.peanut0k.asset.MapAsset;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -207,6 +208,10 @@ public final class LdtkMap implements Disposable {
         } else if (assetPath.startsWith("assets/")) {
             assetPath = assetPath.substring("assets/".length());
         }
+        assetPath = Paths.get(projectDirectory.path(), assetPath)
+            .normalize()
+            .toString()
+            .replace(File.separatorChar, '/');
         FileHandle file = projectDirectory.child(assetPath);
         if (!file.exists()) {
             file = Gdx.files.internal(assetPath);
