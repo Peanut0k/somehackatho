@@ -1,4 +1,4 @@
-package io.github.com.quillraven.screen;
+package io.github.com.peanut0k.screen;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
@@ -8,10 +8,10 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import io.github.com.quillraven.GdxGame;
-import io.github.com.quillraven.asset.AssetService;
-import io.github.com.quillraven.asset.AtlasAsset;
-import io.github.com.quillraven.asset.SkinAsset;
+import io.github.com.peanut0k.GdxGame;
+import io.github.com.peanut0k.asset.AssetService;
+import io.github.com.peanut0k.asset.AtlasAsset;
+import io.github.com.peanut0k.asset.SkinAsset;
 
 public class LoadingScreen extends ScreenAdapter {
     private static final float VIEW_WIDTH = 320f;

@@ -1,13 +1,13 @@
-package io.github.com.quillraven.system;
+package io.github.com.peanut0k.system;
 
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
-import io.github.com.quillraven.component.Controller;
-import io.github.com.quillraven.component.Facing;
-import io.github.com.quillraven.component.Move;
-import io.github.com.quillraven.component.Player;
-import io.github.com.quillraven.input.Command;
+import io.github.com.peanut0k.component.Controller;
+import io.github.com.peanut0k.component.Facing;
+import io.github.com.peanut0k.component.Move;
+import io.github.com.peanut0k.component.Player;
+import io.github.com.peanut0k.input.Command;
 
 import java.util.EnumSet;
 

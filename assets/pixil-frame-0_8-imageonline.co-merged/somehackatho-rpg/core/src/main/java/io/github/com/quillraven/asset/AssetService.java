@@ -1,4 +1,4 @@
-package io.github.com.quillraven.asset;
+package io.github.com.peanut0k.asset;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.AssetManager;

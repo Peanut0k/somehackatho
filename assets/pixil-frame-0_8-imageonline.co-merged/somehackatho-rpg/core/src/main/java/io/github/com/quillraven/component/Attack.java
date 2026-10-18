@@ -1,9 +1,9 @@
-package io.github.com.quillraven.component;
+package io.github.com.peanut0k.component;
 
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.gdx.math.MathUtils;
-import io.github.com.quillraven.asset.SoundAsset;
+import io.github.com.peanut0k.asset.SoundAsset;
 
 public class Attack implements Component {
     public static final ComponentMapper<Attack> MAPPER = ComponentMapper.getFor(Attack.class);

@@ -13,8 +13,8 @@ Use the Gradle wrapper from the repository root (Java 17; wrapper uses Gradle 8.
 There are currently no test source files or test-framework dependencies. After adding a test framework and tests under the relevant module's `src/test/java` tree, use Gradle's test filter to run one test, for example:
 
 ```sh
-./gradlew :chess-engine:test --tests 'io.github.com.quillraven.chessengine.PositionTest'
-./gradlew :chess-engine:test --tests 'io.github.com.quillraven.chessengine.PositionTest.testLegalMoves'
+./gradlew :chess-engine:test --tests 'io.github.com.peanut0khessengine.PositionTest'
+./gradlew :chess-engine:test --tests 'io.github.com.peanut0khessengine.PositionTest.testLegalMoves'
 ```
 
 No dedicated lint plugin or lint task is configured; `check` runs the standard Gradle verification tasks.

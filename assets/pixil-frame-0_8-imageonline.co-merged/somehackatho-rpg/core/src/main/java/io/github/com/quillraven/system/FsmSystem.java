@@ -1,9 +1,9 @@
-package io.github.com.quillraven.system;
+package io.github.com.peanut0k.system;
 
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
-import io.github.com.quillraven.component.Fsm;
+import io.github.com.peanut0k.component.Fsm;
 
 public class FsmSystem extends IteratingSystem {
 

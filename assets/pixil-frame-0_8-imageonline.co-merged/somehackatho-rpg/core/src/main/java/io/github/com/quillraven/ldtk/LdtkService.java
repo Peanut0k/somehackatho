@@ -1,4 +1,4 @@
-package io.github.com.quillraven.ldtk;
+package io.github.com.peanut0k.ldtk;
 
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
@@ -7,8 +7,8 @@ import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
-import io.github.com.quillraven.GdxGame;
-import io.github.com.quillraven.asset.MapAsset;
+import io.github.com.peanut0k.GdxGame;
+import io.github.com.peanut0k.asset.MapAsset;
 
 import java.util.function.Consumer;
 

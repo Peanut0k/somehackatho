@@ -1,4 +1,4 @@
-package io.github.com.quillraven.screen;
+package io.github.com.peanut0k.screen;
 
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
@@ -11,13 +11,13 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import io.github.com.quillraven.GdxGame;
-import io.github.com.quillraven.asset.MusicAsset;
-import io.github.com.quillraven.asset.SkinAsset;
-import io.github.com.quillraven.input.KeyboardController;
-import io.github.com.quillraven.input.UiControllerState;
-import io.github.com.quillraven.input.UiEvent;
-import io.github.com.quillraven.ui.view.InfernalUi;
+import io.github.com.peanut0k.GdxGame;
+import io.github.com.peanut0k.asset.MusicAsset;
+import io.github.com.peanut0k.asset.SkinAsset;
+import io.github.com.peanut0k.input.KeyboardController;
+import io.github.com.peanut0k.input.UiControllerState;
+import io.github.com.peanut0k.input.UiEvent;
+import io.github.com.peanut0k.ui.view.InfernalUi;
 
 public class GameOverScreen extends ScreenAdapter {
     private final GdxGame game;

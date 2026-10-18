@@ -1,10 +1,10 @@
-package io.github.com.quillraven.ui.view;
+package io.github.com.peanut0k.ui.view;
 
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import io.github.com.quillraven.ui.model.GameViewModel;
+import io.github.com.peanut0k.ui.model.GameViewModel;
 
 public final class GameView extends View<GameViewModel> {
     private final InfernalUi infernalUi;

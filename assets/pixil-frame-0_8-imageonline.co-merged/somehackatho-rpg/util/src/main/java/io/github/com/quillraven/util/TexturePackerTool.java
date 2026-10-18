@@ -1,4 +1,4 @@
-package io.github.com.quillraven.util;
+package io.github.com.peanut0k.util;
 
 import com.badlogic.gdx.tools.texturepacker.TexturePacker;
 

@@ -1,4 +1,4 @@
-package io.github.com.quillraven;
+package io.github.com.peanut0k;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
@@ -13,10 +13,10 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import io.github.com.quillraven.asset.AssetService;
-import io.github.com.quillraven.audio.AudioService;
-import io.github.com.quillraven.screen.GameScreen;
-import io.github.com.quillraven.screen.LoadingScreen;
+import io.github.com.peanut0k.asset.AssetService;
+import io.github.com.peanut0k.audio.AudioService;
+import io.github.com.peanut0k.screen.GameScreen;
+import io.github.com.peanut0k.screen.LoadingScreen;
 
 import java.util.HashMap;
 import java.util.Map;

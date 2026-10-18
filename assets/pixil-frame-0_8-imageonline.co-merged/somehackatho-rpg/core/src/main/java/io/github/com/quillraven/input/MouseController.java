@@ -1,4 +1,4 @@
-package io.github.com.quillraven.input;
+package io.github.com.peanut0k.input;
 
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
@@ -6,9 +6,9 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
-import io.github.com.quillraven.component.Attack;
-import io.github.com.quillraven.component.Facing;
-import io.github.com.quillraven.component.Player;
+import io.github.com.peanut0k.component.Attack;
+import io.github.com.peanut0k.component.Facing;
+import io.github.com.peanut0k.component.Player;
 
 public final class MouseController extends InputAdapter {
     private final ImmutableArray<Entity> players;

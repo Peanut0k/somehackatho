@@ -1,4 +1,4 @@
-package io.github.com.quillraven.input;
+package io.github.com.peanut0k.input;
 
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.gdx.Input;

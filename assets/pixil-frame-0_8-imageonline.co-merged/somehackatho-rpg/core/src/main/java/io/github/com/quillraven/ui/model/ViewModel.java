@@ -1,6 +1,6 @@
-package io.github.com.quillraven.ui.model;
+package io.github.com.peanut0k.ui.model;
 
-import io.github.com.quillraven.GdxGame;
+import io.github.com.peanut0k.GdxGame;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;

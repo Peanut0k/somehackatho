@@ -1,4 +1,4 @@
-package io.github.com.quillraven.chessengine;
+package io.github.com.peanut0k.chessengine;
 
 import java.util.ArrayList;
 import java.util.Comparator;

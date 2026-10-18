@@ -1,6 +1,6 @@
-package io.github.com.quillraven.ui.model;
+package io.github.com.peanut0k.ui.model;
 
-import io.github.com.quillraven.GdxGame;
+import io.github.com.peanut0k.GdxGame;
 
 public final class GameViewModel extends ViewModel {
     public static final String GAME_MESSAGE = "gameMessage";

@@ -1,4 +1,4 @@
-package io.github.com.quillraven.ldtk;
+package io.github.com.peanut0k.ldtk;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
@@ -9,8 +9,8 @@ import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
-import io.github.com.quillraven.GdxGame;
-import io.github.com.quillraven.asset.MapAsset;
+import io.github.com.peanut0k.GdxGame;
+import io.github.com.peanut0k.asset.MapAsset;
 
 import java.util.ArrayList;
 import java.util.HashMap;

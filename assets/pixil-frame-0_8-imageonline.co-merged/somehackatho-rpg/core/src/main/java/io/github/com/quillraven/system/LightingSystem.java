@@ -1,4 +1,4 @@
-package io.github.com.quillraven.system;
+package io.github.com.peanut0k.system;
 
 import box2dLight.RayHandler;
 import com.badlogic.ashley.core.Engine;
@@ -10,8 +10,8 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.World;
 import com.badlogic.gdx.utils.Disposable;
-import io.github.com.quillraven.component.Lighting;
-import io.github.com.quillraven.component.Transform;
+import io.github.com.peanut0k.component.Lighting;
+import io.github.com.peanut0k.component.Transform;
 
 public final class LightingSystem extends IteratingSystem implements EntityListener, Disposable {
     private final RayHandler rayHandler;

@@ -1,4 +1,4 @@
-package io.github.com.quillraven.asset;
+package io.github.com.peanut0k.asset;
 
 public enum MapAsset {
     MAIN("tilemap.ldtk");

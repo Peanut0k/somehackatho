@@ -1,4 +1,4 @@
-package io.github.com.quillraven.component;
+package io.github.com.peanut0k.component;
 
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.ComponentMapper;

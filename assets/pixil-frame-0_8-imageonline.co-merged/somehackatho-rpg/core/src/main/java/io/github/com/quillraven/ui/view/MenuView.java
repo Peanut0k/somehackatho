@@ -1,4 +1,4 @@
-package io.github.com.quillraven.ui.view;
+package io.github.com.peanut0k.ui.view;
 
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -9,7 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.GdxRuntimeException;
-import io.github.com.quillraven.ui.model.MenuViewModel;
+import io.github.com.peanut0k.ui.model.MenuViewModel;
 
 public class MenuView extends View<MenuViewModel> {
     private final InfernalUi infernalUi;

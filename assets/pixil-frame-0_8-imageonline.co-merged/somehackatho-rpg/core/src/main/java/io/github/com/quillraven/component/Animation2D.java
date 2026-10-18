@@ -1,12 +1,12 @@
-package io.github.com.quillraven.component;
+package io.github.com.peanut0k.component;
 
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.Animation.PlayMode;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import io.github.com.quillraven.asset.AtlasAsset;
-import io.github.com.quillraven.component.Facing.FacingDirection;
+import io.github.com.peanut0k.asset.AtlasAsset;
+import io.github.com.peanut0k.component.Facing.FacingDirection;
 
 public class Animation2D implements Component {
     public static final ComponentMapper<Animation2D> MAPPER = ComponentMapper.getFor(Animation2D.class);

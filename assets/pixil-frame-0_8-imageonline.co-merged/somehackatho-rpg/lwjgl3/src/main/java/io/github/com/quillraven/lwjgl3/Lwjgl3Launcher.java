@@ -1,8 +1,8 @@
-package io.github.com.quillraven.lwjgl3;
+package io.github.com.peanut0k.lwjgl3;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
-import io.github.com.quillraven.GdxGame;
+import io.github.com.peanut0k.GdxGame;
 
 /**
  * Launches the desktop (LWJGL3) application.
