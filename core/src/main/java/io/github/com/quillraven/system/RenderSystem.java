@@ -12,6 +12,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import io.github.com.quillraven.component.Graphic;
+import io.github.com.quillraven.component.Ldtk;
 import io.github.com.quillraven.component.Transform;
 import io.github.com.quillraven.ldtk.LdtkMap;
 
@@ -51,19 +52,49 @@ public class RenderSystem extends SortedIteratingSystem implements Disposable {
         batch.begin();
         batch.setColor(Color.WHITE);
         if (map != null) {
-            drawMapTiles(map);
+            drawLayeredMap(map);
+        } else {
+            forceSort();
+            super.update(deltaTime);
         }
-
-        forceSort();
-        super.update(deltaTime);
 
         batch.setColor(Color.WHITE);
         batch.end();
     }
 
-    private void drawMapTiles(LdtkMap map) {
+    private void drawLayeredMap(LdtkMap map) {
+        forceSort();
+        // LDtk stores layers from front to back; render from back to front.
+        for (int layerIndex = map.getLayerCount() - 1; layerIndex >= 0; layerIndex--) {
+            drawMapLayerTiles(map, layerIndex);
+            drawMapLayerEntities(layerIndex);
+        }
+        drawUnlayeredEntities();
+    }
+
+    private void drawMapLayerTiles(LdtkMap map, int layerIndex) {
         for (LdtkMap.Tile tile : map.getTiles()) {
-            batch.draw(tile.region(), tile.x(), tile.y(), tile.size(), tile.size());
+            if (tile.layerIndex() == layerIndex) {
+                batch.draw(tile.region(), tile.x(), tile.y(), tile.size(), tile.size());
+            }
+        }
+    }
+
+    private void drawMapLayerEntities(int layerIndex) {
+        for (Entity entity : getEntities()) {
+            Ldtk ldtk = Ldtk.MAPPER.get(entity);
+            if (ldtk != null && ldtk.getLayerIndex() == layerIndex) {
+                drawEntity(entity);
+            }
+        }
+    }
+
+    private void drawUnlayeredEntities() {
+        for (Entity entity : getEntities()) {
+            Ldtk ldtk = Ldtk.MAPPER.get(entity);
+            if (ldtk == null || ldtk.getLayerIndex() < 0) {
+                drawEntity(entity);
+            }
         }
     }
 
@@ -72,6 +103,10 @@ public class RenderSystem extends SortedIteratingSystem implements Disposable {
      */
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
+        drawEntity(entity);
+    }
+
+    private void drawEntity(Entity entity) {
         Transform transform = Transform.MAPPER.get(entity);
         Graphic graphic = Graphic.MAPPER.get(entity);
         if (graphic.getRegion() == null) {

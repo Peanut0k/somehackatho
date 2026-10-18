@@ -64,12 +64,12 @@ public class GdxGame extends Game {
         super.setScreen(screen);
     }
 
-    public Screen getScreenFor(Class<? extends Screen> screenClass) {
+    public <T extends Screen> T getScreenFor(Class<T> screenClass) {
         Screen screen = screenCache.get(screenClass);
         if (screen == null) {
             throw new GdxRuntimeException("Screen " + screenClass.getSimpleName() + " not found in cache");
         }
-        return screen;
+        return screenClass.cast(screen);
     }
 
     public void removeScreen(Screen screen) {

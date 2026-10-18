@@ -8,10 +8,16 @@ public class Ldtk implements Component {
 
     private final String iid;
     private final String identifier;
+    private final int layerIndex;
 
     public Ldtk(String iid, String identifier) {
+        this(iid, identifier, -1);
+    }
+
+    public Ldtk(String iid, String identifier, int layerIndex) {
         this.iid = iid;
         this.identifier = identifier;
+        this.layerIndex = layerIndex;
     }
 
     public String getIid() {
@@ -20,5 +26,9 @@ public class Ldtk implements Component {
 
     public String getIdentifier() {
         return identifier;
+    }
+
+    public int getLayerIndex() {
+        return layerIndex;
     }
 }

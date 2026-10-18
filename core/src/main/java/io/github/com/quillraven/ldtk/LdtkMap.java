@@ -12,6 +12,7 @@ import com.badlogic.gdx.utils.JsonValue;
 import io.github.com.quillraven.GdxGame;
 import io.github.com.quillraven.asset.MapAsset;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +22,7 @@ public final class LdtkMap implements Disposable {
     private final int pixelWidth;
     private final int pixelHeight;
     private final int gridSize;
+    private final int layerCount;
     private final float width;
     private final float height;
     private final Color backgroundColor;
@@ -30,10 +32,12 @@ public final class LdtkMap implements Disposable {
     private final List<Texture> textures = new ArrayList<>();
     private final boolean[][] solidCells;
 
-    private LdtkMap(int pixelWidth, int pixelHeight, int gridSize, Color backgroundColor, String music) {
+    private LdtkMap(int pixelWidth, int pixelHeight, int gridSize, int layerCount,
+                    Color backgroundColor, String music) {
         this.pixelWidth = pixelWidth;
         this.pixelHeight = pixelHeight;
         this.gridSize = gridSize;
+        this.layerCount = layerCount;
         this.width = pixelWidth * GdxGame.UNIT_SCALE;
         this.height = pixelHeight * GdxGame.UNIT_SCALE;
         this.backgroundColor = backgroundColor;
@@ -73,22 +77,32 @@ public final class LdtkMap implements Disposable {
         }
         Color bg = Color.valueOf(project.getString("bgColor", "000000").replace("#", ""));
         String music = fieldValue(level.get("fieldInstances"), "music", "");
-        LdtkMap map = new LdtkMap(pixelWidth, pixelHeight, gridSize, bg, music);
+        LdtkMap map = new LdtkMap(pixelWidth, pixelHeight, gridSize,
+            layers == null ? 0 : layers.size, bg, music);
 
         Map<Integer, String> tilesetPaths = new HashMap<>();
+        Map<Integer, Integer> tilesetGridSizes = new HashMap<>();
         JsonValue tilesets = project.get("defs").get("tilesets");
         for (JsonValue tileset : tilesets) {
-            tilesetPaths.put(tileset.getInt("uid"), tileset.getString("relPath"));
+            int uid = tileset.getInt("uid");
+            tilesetPaths.put(uid, tileset.getString("relPath"));
+            tilesetGridSizes.put(uid, tileset.getInt("tileGridSize", gridSize));
         }
         Map<Integer, Texture> texturesByUid = new HashMap<>();
+        FileHandle projectDirectory = projectFile.parent();
         try {
             if (layers != null) {
-                for (JsonValue layer : layers) {
+                for (int layerIndex = 0; layerIndex < layers.size; layerIndex++) {
+                    JsonValue layer = layers.get(layerIndex);
                     int layerGrid = layer.getInt("__gridSize", gridSize);
                     int tilesetUid = intValue(layer.get("__tilesetDefUid"), -1);
-                    Texture layerTexture = textureFor(tilesetUid, tilesetPaths, texturesByUid, map);
-                    addTiles(map, layer.get("autoLayerTiles"), layerTexture, layer, pixelHeight, layerGrid);
-                    addTiles(map, layer.get("gridTiles"), layerTexture, layer, pixelHeight, layerGrid);
+                    int tileSize = tilesetGridSizes.getOrDefault(tilesetUid, layerGrid);
+                    Texture layerTexture = textureFor(
+                        tilesetUid, tilesetPaths, texturesByUid, map, projectDirectory);
+                    addTiles(map, layer.get("autoLayerTiles"), layerTexture, layer, pixelHeight,
+                        tileSize, layerIndex);
+                    addTiles(map, layer.get("gridTiles"), layerTexture, layer, pixelHeight,
+                        tileSize, layerIndex);
 
                     JsonValue csv = layer.get("intGridCsv");
                     if (csv != null) {
@@ -112,7 +126,9 @@ public final class LdtkMap implements Disposable {
                     JsonValue instances = layer.get("entityInstances");
                     if (instances != null) {
                         for (JsonValue instance : instances) {
-                            map.entities.add(parseEntity(instance, layer, pixelHeight, tilesetPaths, texturesByUid, map));
+                            map.entities.add(parseEntity(
+                                instance, layer, layerIndex, pixelHeight,
+                                tilesetPaths, texturesByUid, map, projectDirectory));
                         }
                     }
                 }
@@ -154,7 +170,8 @@ public final class LdtkMap implements Disposable {
         Texture texture,
         JsonValue layer,
         int pixelHeight,
-        int tileSize
+        int tileSize,
+        int layerIndex
     ) {
         if (tiles == null || texture == null) return;
         int[] offset = intArrayOrDefault(layer.get("__pxTotalOffsetX"), layer.get("__pxTotalOffsetY"));
@@ -166,7 +183,7 @@ public final class LdtkMap implements Disposable {
             region.flip((flags & 1) != 0, (flags & 2) != 0);
             float x = (px[0] + offset[0]) * GdxGame.UNIT_SCALE;
             float y = (pixelHeight - px[1] - tileSize - offset[1]) * GdxGame.UNIT_SCALE;
-            map.tiles.add(new Tile(region, x, y, tileSize * GdxGame.UNIT_SCALE));
+            map.tiles.add(new Tile(region, x, y, tileSize * GdxGame.UNIT_SCALE, layerIndex));
         }
     }
 
@@ -174,15 +191,29 @@ public final class LdtkMap implements Disposable {
         int uid,
         Map<Integer, String> paths,
         Map<Integer, Texture> texturesByUid,
-        LdtkMap map
+        LdtkMap map,
+        FileHandle projectDirectory
     ) {
         if (uid < 0) return null;
         Texture existing = texturesByUid.get(uid);
         if (existing != null) return existing;
         String path = paths.get(uid);
         if (path == null) return null;
-        String assetPath = path.startsWith("assets/") ? path.substring("assets/".length()) : path;
-        FileHandle file = Gdx.files.internal(assetPath);
+        String assetPath = path.replace('\\', '/');
+        if (assetPath.startsWith("somehackatho-rpg/assets/")) {
+            assetPath = assetPath.substring("somehackatho-rpg/assets/".length());
+        } else if (assetPath.startsWith("somehackatho-rpg/")) {
+            assetPath = assetPath.substring("somehackatho-rpg/".length());
+        } else if (assetPath.startsWith("assets/")) {
+            assetPath = assetPath.substring("assets/".length());
+        }
+        FileHandle file = projectDirectory.child(assetPath);
+        if (!file.exists()) {
+            file = Gdx.files.internal(assetPath);
+        }
+        if (!file.exists()) {
+            file = projectDirectory.child(new File(assetPath).getName());
+        }
         if (!file.exists()) {
             throw new GdxRuntimeException("LDtk tileset image not found: " + assetPath);
         }
@@ -196,10 +227,12 @@ public final class LdtkMap implements Disposable {
     private static EntityInstance parseEntity(
         JsonValue instance,
         JsonValue layer,
+        int layerIndex,
         int levelHeight,
         Map<Integer, String> tilesetPaths,
         Map<Integer, Texture> texturesByUid,
-        LdtkMap map
+        LdtkMap map,
+        FileHandle projectDirectory
     ) {
         int[] px = intArray(instance.get("px"));
         float entityWidth = instance.getFloat("width", map.gridSize);
@@ -216,7 +249,7 @@ public final class LdtkMap implements Disposable {
         TextureRegion region = null;
         if (tile != null && !tile.isNull()) {
             tilesetUid = tile.getInt("tilesetUid", tilesetUid);
-            Texture texture = textureFor(tilesetUid, tilesetPaths, texturesByUid, map);
+            Texture texture = textureFor(tilesetUid, tilesetPaths, texturesByUid, map, projectDirectory);
             if (texture != null) {
                 int x = tile.getInt("x");
                 int y = tile.getInt("y");
@@ -232,6 +265,7 @@ public final class LdtkMap implements Disposable {
         return new EntityInstance(
             instance.getString("__identifier"),
             instance.getString("iid", instance.getString("__identifier")),
+            layerIndex,
             x,
             y,
             entityWidth * GdxGame.UNIT_SCALE,
@@ -294,6 +328,10 @@ public final class LdtkMap implements Disposable {
         return gridSize;
     }
 
+    public int getLayerCount() {
+        return layerCount;
+    }
+
     public float getWidth() {
         return width;
     }
@@ -345,12 +383,13 @@ public final class LdtkMap implements Disposable {
         textures.clear();
     }
 
-    public record Tile(TextureRegion region, float x, float y, float size) {
+    public record Tile(TextureRegion region, float x, float y, float size, int layerIndex) {
     }
 
     public record EntityInstance(
         String identifier,
         String iid,
+        int layerIndex,
         float x,
         float y,
         float width,

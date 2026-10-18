@@ -6,9 +6,11 @@ public final class GameViewModel extends ViewModel {
     public static final String GAME_MESSAGE = "gameMessage";
     public static final String ENEMY_PREDICTION = "enemyPrediction";
     public static final String LIVES = "lives";
+    public static final String CONTROLS = "controls";
 
-    private String gameMessage = "Explore and find the pawn arena.";
+    private String gameMessage = "Explore the hub, challenge chess players, and find the pawn portal.";
     private String enemyPrediction = "Enemy move: enter the arena";
+    private String controls = "WASD MOVE  |  E INTERACT  |  CLICK CHALLENGER";
     private int lives = 2;
 
     public GameViewModel(GdxGame game) {
@@ -43,5 +45,15 @@ public final class GameViewModel extends ViewModel {
 
     public int getLives() {
         return lives;
+    }
+
+    public void setControls(String controls) {
+        if (this.controls.equals(controls)) return;
+        propertyChangeSupport.firePropertyChange(CONTROLS, this.controls, controls);
+        this.controls = controls;
+    }
+
+    public String getControls() {
+        return controls;
     }
 }

@@ -60,26 +60,26 @@ public class GameOverScreen extends ScreenAdapter {
         root.align(Align.center);
         Table panel = new Table();
         panel.setBackground(infernalUi.panel());
-        panel.pad(10f);
+        panel.pad(8f);
 
-        Label title = new Label(victory ? "THE BOARD FALLS SILENT" : "CHECKMATE", skin);
-        title.setFontScale(0.8f);
+        Label title = new Label(victory ? "RUIN CHALLENGE COMPLETE" : "GAME OVER", skin);
+        title.setFontScale(0.65f);
         title.setColor(victory ? new Color(0.91f, 0.78f, 0.43f, 1f) : new Color(0.85f, 0.38f, 0.34f, 1f));
-        panel.add(title).padBottom(5f).row();
+        panel.add(title).padBottom(4f).row();
 
         Label subtitle = new Label(
-            victory ? "What happens next is yours to decide." : "The pieces remember your last move.",
+            victory ? "Challenge completed." : "You ran out of lives.",
             skin, "small");
-        subtitle.setFontScale(0.8f);
+        subtitle.setFontScale(0.7f);
         subtitle.setColor(skin.getColor("white"));
-        panel.add(subtitle).padBottom(8f).row();
+        panel.add(subtitle).padBottom(6f).row();
 
-        retryButton = new TextButton("Play Again", skin);
-        menuButton = new TextButton("Main Menu", skin);
+        retryButton = new TextButton("Retry", skin);
+        menuButton = new TextButton("Menu", skin);
         styleButton(retryButton);
         styleButton(menuButton);
-        panel.add(retryButton).width(125f).height(20f).padBottom(4f).row();
-        panel.add(menuButton).width(125f).height(20f);
+        panel.add(retryButton).width(82f).height(18f).padRight(4f);
+        panel.add(menuButton).width(82f).height(18f);
 
         retryButton.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ClickListener() {
             @Override

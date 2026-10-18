@@ -21,6 +21,7 @@ public class CameraSystem extends IteratingSystem {
     private float smoothingFactor;
     private float mapW;
     private float mapH;
+    private Vector2 fixedTarget;
 
     public CameraSystem(OrthographicCamera camera) {
         super(Family.all(CameraFollow.class, Transform.class).get());
@@ -33,6 +34,10 @@ public class CameraSystem extends IteratingSystem {
      */
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
+        if (fixedTarget != null) {
+            camera.position.set(fixedTarget.x, fixedTarget.y, camera.position.z);
+            return;
+        }
         Transform transform = Transform.MAPPER.get(entity);
         calcDeadZoneTarget(transform.getPosition());
 
@@ -41,6 +46,16 @@ public class CameraSystem extends IteratingSystem {
         float smoothedX = MathUtils.lerp(camera.position.x, this.targetPosition.x, progress);
         float smoothedY = MathUtils.lerp(camera.position.y, this.targetPosition.y, progress);
         camera.position.set(smoothedX, smoothedY, camera.position.z);
+    }
+
+    public void setFixedTarget(Vector2 target) {
+        fixedTarget = target.cpy();
+        camera.position.set(fixedTarget.x, fixedTarget.y, camera.position.z);
+        camera.update();
+    }
+
+    public void clearFixedTarget() {
+        fixedTarget = null;
     }
 
     /**

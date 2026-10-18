@@ -1,7 +1,7 @@
 package io.github.com.quillraven.asset;
 
 public enum MapAsset {
-    MAIN("tilemap.ldtk");
+    MAIN("PoserSeDane/PoserSeDane.ldtk");
 
     private final String fileName;
 

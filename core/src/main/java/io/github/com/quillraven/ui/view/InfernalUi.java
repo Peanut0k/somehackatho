@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.graphics.g2d.NinePatch;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Disposable;
 
 public final class InfernalUi implements Disposable {
@@ -19,18 +20,22 @@ public final class InfernalUi implements Disposable {
     private final Texture panelTexture;
     private final Texture buttonTexture;
     private final Texture selectedButtonTexture;
+    private final Texture heartTexture;
     private final Drawable panel;
     private final Drawable button;
     private final Drawable selectedButton;
+    private final Drawable heart;
 
     public InfernalUi() {
         backdropTexture = texture(createBackdropPixmap());
         panelTexture = texture(createPanel());
         buttonTexture = texture(createButton(new Color(0.10f, 0.09f, 0.13f, 1f), new Color(0.55f, 0.17f, 0.15f, 1f)));
         selectedButtonTexture = texture(createButton(new Color(0.30f, 0.08f, 0.10f, 1f), EMBER));
+        heartTexture = texture(createHeart());
         panel = ninePatch(panelTexture);
         button = ninePatch(buttonTexture);
         selectedButton = ninePatch(selectedButtonTexture);
+        heart = new TextureRegionDrawable(new TextureRegion(heartTexture));
     }
 
     public Image createBackdrop() {
@@ -50,6 +55,10 @@ public final class InfernalUi implements Disposable {
 
     public Drawable selectedButton() {
         return selectedButton;
+    }
+
+    public Drawable heart() {
+        return heart;
     }
 
     private static Pixmap createBackdropPixmap() {
@@ -136,6 +145,15 @@ public final class InfernalUi implements Disposable {
         return pixmap;
     }
 
+    private static Pixmap createHeart() {
+        Pixmap pixmap = new Pixmap(10, 10, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fillCircle(3, 3, 3);
+        pixmap.fillCircle(7, 3, 3);
+        pixmap.fillTriangle(0, 3, 10, 3, 5, 9);
+        return pixmap;
+    }
+
     private static Texture texture(Pixmap pixmap) {
         Texture texture = new Texture(pixmap);
         texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
@@ -153,5 +171,6 @@ public final class InfernalUi implements Disposable {
         panelTexture.dispose();
         buttonTexture.dispose();
         selectedButtonTexture.dispose();
+        heartTexture.dispose();
     }
 }

@@ -69,10 +69,8 @@ public abstract class View<T extends ViewModel> extends Table implements EventLi
                 case RIGHT -> onRight();
                 case UP -> onUp();
                 case DOWN -> onDown();
-                case CAPTURE_LEFT, CAPTURE_RIGHT -> {
-                }
                 case SELECT -> onSelect();
-                case CANCEL -> {
+                case INTERACT, CAPTURE_LEFT, CAPTURE_RIGHT, CANCEL -> {
                 }
             }
             return true;

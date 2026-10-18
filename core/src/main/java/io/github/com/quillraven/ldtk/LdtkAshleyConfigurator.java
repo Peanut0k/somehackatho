@@ -9,6 +9,7 @@ import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
@@ -28,6 +29,8 @@ import io.github.com.quillraven.asset.AssetService;
 import io.github.com.quillraven.asset.AtlasAsset;
 import io.github.com.quillraven.component.Animation2D;
 import io.github.com.quillraven.component.CameraFollow;
+import io.github.com.quillraven.component.ChessChallenger;
+import io.github.com.quillraven.component.ChessPiece;
 import io.github.com.quillraven.component.Controller;
 import io.github.com.quillraven.component.Facing;
 import io.github.com.quillraven.component.Facing.FacingDirection;
@@ -47,6 +50,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
     private final AssetService assetService;
     private final RayHandler rayHandler;
     private final Texture portalTexture;
+    private Texture chessPawnTexture;
 
     public LdtkAshleyConfigurator(Engine engine, World physicsWorld, AssetService assetService, RayHandler rayHandler) {
         this.engine = engine;
@@ -63,6 +67,11 @@ public final class LdtkAshleyConfigurator implements Disposable {
             createLightEntity(instance, lowerId);
             return;
         }
+        if (lowerId.equals("chesschallenger") || lowerId.equals("kupec")) {
+            createChessChallenger(instance);
+            return;
+        }
+        boolean chessPawn = lowerId.equals("chesspawn");
         String triggerName = instance.getString("triggerName", instance.getString("trigger", ""));
         boolean isSensor = instance.getBoolean("sensor", false);
         boolean isTrigger = lowerId.contains("trigger") || !triggerName.isBlank() || isSensor;
@@ -83,11 +92,11 @@ public final class LdtkAshleyConfigurator implements Disposable {
         Vector2 position = new Vector2(instance.x(), instance.y());
         entity.add(new Transform(position, (int) instance.getFloat("z", 1f),
             new Vector2(width, height), new Vector2(
-                instance.getFloat("scaleX", 1f),
-                instance.getFloat("scaleY", 1f)
-            ), instance.getFloat("rotation", 0f),
+            instance.getFloat("scaleX", 1f),
+            instance.getFloat("scaleY", 1f)
+        ), instance.getFloat("rotation", 0f),
             instance.getFloat("sortOffsetY", 0f) * GdxGame.UNIT_SCALE));
-        entity.add(new Ldtk(instance.iid(), id));
+        entity.add(new Ldtk(instance.iid(), id, instance.layerIndex()));
 
         if (isTrigger) {
             String name = triggerName.isBlank()
@@ -104,13 +113,18 @@ public final class LdtkAshleyConfigurator implements Disposable {
         }
 
         TextureRegion region = getRegion(instance);
+        if (region == null && chessPawn) region = getChessPawnRegion();
         if (region != null) {
             entity.add(new Graphic(region, Color.WHITE.cpy()));
         }
-        addAnimation(instance, entity);
-        addMovement(instance, entity);
-        entity.add(new Facing(FacingDirection.DOWN));
-        entity.add(new Fsm(entity));
+        if (chessPawn) {
+            entity.add(new ChessPiece(ChessPiece.Type.PAWN));
+        } else {
+            addAnimation(instance, entity);
+            addMovement(instance, entity);
+            entity.add(new Facing(FacingDirection.DOWN));
+            entity.add(new Fsm(entity));
+        }
 
         if (isPlayer) {
             entity.add(new Player());
@@ -124,8 +138,8 @@ public final class LdtkAshleyConfigurator implements Disposable {
             if (instance.getBoolean("camFollow", false)) entity.add(new CameraFollow());
         }
 
-        String bodyTypeName = instance.getString("bodyType",
-            "Prop".equalsIgnoreCase(instance.getString("type", "")) ? "StaticBody" : "DynamicBody");
+        String bodyTypeName = instance.getString("bodyType", chessPawn
+            || "Prop".equalsIgnoreCase(instance.getString("type", "")) ? "StaticBody" : "DynamicBody");
         try {
             createBody(entity, position, colliderWidth, colliderHeight,
                 colliderCenterX, colliderCenterY,
@@ -133,6 +147,67 @@ public final class LdtkAshleyConfigurator implements Disposable {
         } catch (IllegalArgumentException exception) {
             throw new GdxRuntimeException("Unsupported LDtk bodyType '" + bodyTypeName + "' on " + id, exception);
         }
+        engine.addEntity(entity);
+    }
+
+    private void createChessChallenger(LdtkMap.EntityInstance instance) {
+        boolean merchant = "kupec".equalsIgnoreCase(instance.identifier());
+        String name = instance.getString("challengerName", merchant ? "The Merchant" : instance.identifier());
+        String challengerId = instance.getString("challengerId",
+            merchant ? instance.iid() : name);
+        int searchDepth = Math.round(instance.getFloat("searchDepth", 2f));
+        if (searchDepth < 1 || searchDepth > 5) {
+            throw new GdxRuntimeException("Chess challenger searchDepth must be between 1 and 5 on " + name);
+        }
+        ChessChallenger.RewardType rewardType;
+        ChessChallenger.Ability ability;
+        try {
+            rewardType = ChessChallenger.RewardType.valueOf(
+                instance.getString("rewardType", "LIFE").toUpperCase());
+            ability = ChessChallenger.Ability.valueOf(
+                instance.getString("ability", "NONE").toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new GdxRuntimeException("Invalid chess challenger rewardType or ability on " + name, exception);
+        }
+        if (rewardType == ChessChallenger.RewardType.ABILITY
+            && ability == ChessChallenger.Ability.NONE) {
+            throw new GdxRuntimeException("Ability reward requires an ability on chess challenger " + name);
+        }
+        if (rewardType == ChessChallenger.RewardType.LIFE
+            && ability != ChessChallenger.Ability.NONE) {
+            throw new GdxRuntimeException("Life reward must use ability NONE on chess challenger " + name);
+        }
+
+        Entity entity = engine.createEntity();
+        Vector2 position = new Vector2(instance.x(), instance.y());
+        Vector2 size = new Vector2(
+            Math.max(instance.width(), GdxGame.UNIT_SCALE * 16f),
+            Math.max(instance.height(), GdxGame.UNIT_SCALE * 16f)
+        );
+        entity.add(new Transform(position, (int) instance.getFloat("z", 2f), size,
+            new Vector2(1f, 1f), 0f, 0f));
+        entity.add(new Ldtk(instance.iid(), instance.identifier(), instance.layerIndex()));
+        TextureRegion region = instance.region();
+        if (region == null) {
+            TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
+            var frames = atlas.findRegions(instance.getString("sprite", "training_dummy/idle_down"));
+            if (frames.isEmpty()) {
+                throw new GdxRuntimeException("Chess challenger sprite is missing from objects.atlas: " + name);
+            }
+            region = frames.first();
+        }
+        String colorValue = instance.getString("color", "ffffff").replace("#", "");
+        Color color;
+        try {
+            color = Color.valueOf(colorValue);
+        } catch (IllegalArgumentException exception) {
+            throw new GdxRuntimeException("Invalid chess challenger color '" + colorValue + "' on " + name, exception);
+        }
+        entity.add(new Graphic(region, color));
+        entity.add(new ChessChallenger(challengerId, name, searchDepth, rewardType, ability, false));
+        entity.add(new Trigger("chess-challenger"));
+        createBody(entity, position, size.x * 0.6f, size.y * 0.6f,
+            size.x * 0.5f, size.y * 0.5f, BodyDef.BodyType.StaticBody, true);
         engine.addEntity(entity);
     }
 
@@ -151,6 +226,17 @@ public final class LdtkAshleyConfigurator implements Disposable {
         texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
         pixmap.dispose();
         return texture;
+    }
+
+    private TextureRegion getChessPawnRegion() {
+        if (chessPawnTexture == null) {
+            if (!Gdx.files.internal("pawn.png").exists()) {
+                throw new GdxRuntimeException("ChessPawn has no LDtk tile and pawn.png is missing");
+            }
+            chessPawnTexture = new Texture(Gdx.files.internal("pawn.png"));
+            chessPawnTexture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        }
+        return new TextureRegion(chessPawnTexture);
     }
 
     private static boolean isLightEntity(LdtkMap.EntityInstance instance, String lowerId) {
@@ -206,7 +292,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
 
         Entity entity = engine.createEntity();
         entity.add(new Transform(position, 0, size, new Vector2(1f, 1f), 0f, 0f));
-        entity.add(new Ldtk(instance.iid(), instance.identifier()));
+        entity.add(new Ldtk(instance.iid(), instance.identifier(), instance.layerIndex()));
         entity.add(new Lighting(light, !staticLight && !"directional".equals(lightType)));
         engine.addEntity(entity);
     }
@@ -244,6 +330,25 @@ public final class LdtkAshleyConfigurator implements Disposable {
         createBody(entity, position, size.x * 0.275f, size.y * 0.275f,
             size.x * 0.5f, size.y * 0.5f, BodyDef.BodyType.DynamicBody, false);
         engine.addEntity(entity);
+    }
+
+    public void createDefaultArenaPortalIfMissing(LdtkMap map) {
+        ImmutableArray<Entity> triggers = engine.getEntitiesFor(Family.all(Trigger.class).get());
+        for (Entity entity : triggers) {
+            if ("teleportt".equalsIgnoreCase(Trigger.MAPPER.get(entity).getName())) return;
+        }
+
+        float[] spawn = map.findOpenSpawn();
+        Vector2 size = new Vector2(16f, 16f);
+        Vector2 position = new Vector2(spawn[0] - size.x * 0.5f, spawn[1] - size.y * 0.5f);
+        Entity portal = engine.createEntity();
+        portal.add(new Transform(position, 2, size, new Vector2(1f, 1f), 0f, 0f));
+        portal.add(new Ldtk("default-arena-portal", "Teleportt"));
+        portal.add(new Trigger("teleportt"));
+        portal.add(new Graphic(new TextureRegion(portalTexture), Color.WHITE.cpy()));
+        createBody(portal, position, size.x, size.y, size.x * 0.5f, size.y * 0.5f,
+            BodyDef.BodyType.StaticBody, true);
+        engine.addEntity(portal);
     }
 
     private static void positionExistingPlayer(Entity player, LdtkMap map) {
@@ -333,5 +438,6 @@ public final class LdtkAshleyConfigurator implements Disposable {
     @Override
     public void dispose() {
         portalTexture.dispose();
+        if (chessPawnTexture != null) chessPawnTexture.dispose();
     }
 }

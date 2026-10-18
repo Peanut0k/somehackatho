@@ -9,7 +9,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.physics.box2d.Body;
 import io.github.com.quillraven.chessengine.ChessEngine;
 import io.github.com.quillraven.chessengine.Move;
 import io.github.com.quillraven.chessengine.Piece;
@@ -17,6 +16,7 @@ import io.github.com.quillraven.chessengine.PieceType;
 import io.github.com.quillraven.chessengine.Position;
 import io.github.com.quillraven.chessengine.Side;
 import io.github.com.quillraven.component.ChessPiece;
+import io.github.com.quillraven.component.BoardMotion;
 import io.github.com.quillraven.component.Facing;
 import io.github.com.quillraven.component.Facing.FacingDirection;
 import io.github.com.quillraven.component.Graphic;
@@ -38,7 +38,6 @@ public final class ChessPieceSystem extends EntitySystem {
     private final Consumer<Boolean> onCombatFinished;
     private final ChessEngine enemyEngine = new ChessEngine();
     private final Vector2 target = new Vector2();
-    private final Vector2 delta = new Vector2();
     private ImmutableArray<Entity> pieces;
     private ImmutableArray<Entity> players;
     private LdtkMap map;
@@ -50,10 +49,6 @@ public final class ChessPieceSystem extends EntitySystem {
     private Entity predictionMarker;
     private Entity predictionSourceMarker;
     private PlannedMove predictedMove;
-    private PlannedMove pendingThreatMove;
-    private boolean pendingThreat;
-    private int pendingCaptureColumn;
-    private int pendingCaptureRow;
 
     public ChessPieceSystem(
         GameViewModel viewModel,
@@ -74,14 +69,11 @@ public final class ChessPieceSystem extends EntitySystem {
     public void setMap(LdtkMap map) {
         clearPredictionMarker();
         predictedMove = null;
-        pendingThreatMove = null;
-        pendingThreat = false;
         this.map = map;
         boardLeft = (map.getWidth() - BOARD_SIZE * CELL_SIZE) * 0.5f;
         boardBottom = (map.getHeight() - BOARD_SIZE * CELL_SIZE) * 0.5f;
         finished = false;
         lostLifeThisTurn = false;
-        lives = 2;
         viewModel.setLives(lives);
         viewModel.setGameMessage("Capture the black king.");
         viewModel.setEnemyPrediction("Enemy move: preparing board");
@@ -100,6 +92,7 @@ public final class ChessPieceSystem extends EntitySystem {
 
     public boolean movePlayer(Command action) {
         if (finished || map == null || players.size() == 0) return false;
+        if (getEngine().getEntitiesFor(Family.all(BoardMotion.class).get()).size() > 0) return false;
 
         Entity player = players.first();
         Facing facing = Facing.MAPPER.get(player);
@@ -165,58 +158,6 @@ public final class ChessPieceSystem extends EntitySystem {
 
     private void takeEnemyTurn(Entity player, Entity capturedPiece) {
         lostLifeThisTurn = false;
-        if (pendingThreat) {
-            Vector2 playerPosition = entityCenter(player);
-            int playerColumn = cell(playerPosition.x, boardLeft);
-            int playerRow = cell(playerPosition.y, boardBottom);
-            Entity attacker = playerColumn == pendingCaptureColumn && playerRow == pendingCaptureRow
-                ? findThreateningPiece(playerColumn, playerRow, capturedPiece)
-                : null;
-            if (attacker != null) {
-                lives--;
-                viewModel.setLives(lives);
-                lostLifeThisTurn = true;
-                moveEntity(attacker, playerColumn, playerRow);
-                if (lives == 0) {
-                    viewModel.setGameMessage("You lost both lives. Game over.");
-                    finish(false);
-                    return;
-                }
-                Square respawn = findNearestSafeSquare(playerColumn, playerRow);
-                if (respawn == null) respawn = findNearestEmptySquare(playerColumn, playerRow);
-                if (respawn != null) moveEntity(player, respawn.column, respawn.row);
-                viewModel.setGameMessage("Captured! Respawned safely. " + lives + " life remaining.");
-                pendingThreat = false;
-                pendingThreatMove = null;
-                return;
-            }
-            PlannedMove threatenedMove = pendingThreatMove;
-            pendingThreat = false;
-            pendingThreatMove = null;
-            if (threatenedMove != null && threatenedMove.piece != capturedPiece
-                && isOnBoard(threatenedMove.piece)) {
-                Vector2 currentPlayerPosition = entityCenter(player);
-                int currentPlayerColumn = cell(currentPlayerPosition.x, boardLeft);
-                int currentPlayerRow = cell(currentPlayerPosition.y, boardBottom);
-                if (threatenedMove.destination.column == currentPlayerColumn
-                    && threatenedMove.destination.row == currentPlayerRow) {
-                    pendingThreat = true;
-                    pendingThreatMove = threatenedMove;
-                    pendingCaptureColumn = currentPlayerColumn;
-                    pendingCaptureRow = currentPlayerRow;
-                    viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
-                    return;
-                }
-                Gdx.app.log("ChessEngine", "Executing predicted black move " + moveName(threatenedMove));
-                moveEntity(
-                    threatenedMove.piece,
-                    threatenedMove.destination.column,
-                    threatenedMove.destination.row
-                );
-                return;
-            }
-        }
-
         PlannedMove plannedMove = predictedMove;
         predictedMove = null;
         if (plannedMove != null && (plannedMove.piece == capturedPiece || !isOnBoard(plannedMove.piece))) {
@@ -238,14 +179,26 @@ public final class ChessPieceSystem extends EntitySystem {
         int playerRow = cell(playerPosition.y, boardBottom);
         if (plannedMove.destination.column == playerColumn
             && plannedMove.destination.row == playerRow) {
-            pendingThreat = true;
-            pendingThreatMove = plannedMove;
-            pendingCaptureColumn = playerColumn;
-            pendingCaptureRow = playerRow;
-            viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
+            moveEntity(plannedMove.piece, playerColumn, playerRow);
+            loseLife(player, playerColumn, playerRow);
             return;
         }
         moveEntity(plannedMove.piece, plannedMove.destination.column, plannedMove.destination.row);
+    }
+
+    private void loseLife(Entity player, int column, int row) {
+        lives = Math.max(0, lives - 1);
+        viewModel.setLives(lives);
+        lostLifeThisTurn = true;
+        if (lives <= 0) {
+            viewModel.setGameMessage("You were captured and lost your final life.");
+            finish(false);
+            return;
+        }
+        Square respawn = findNearestSafeSquare(column, row);
+        if (respawn == null) respawn = findNearestEmptySquare(column, row);
+        if (respawn != null) moveEntity(player, respawn.column, respawn.row);
+        viewModel.setGameMessage("Captured immediately! Respawned with " + lives + " lives remaining.");
     }
 
     private PlannedMove findEnemyMove(Entity player, Entity capturedPiece) {
@@ -288,13 +241,6 @@ public final class ChessPieceSystem extends EntitySystem {
 
     private void updatePrediction() {
         if (finished || players == null || players.size() == 0) return;
-        if (pendingThreat) {
-            updatePredictionMarker(pendingCaptureColumn, pendingCaptureRow, true);
-            clearPredictionSourceMarker();
-            viewModel.setEnemyPrediction("Danger: enemy threatens your square!");
-            viewModel.setGameMessage("A black piece threatens your square. Move to escape!");
-            return;
-        }
         predictedMove = findEnemyMove(players.first(), null);
         if (predictedMove == null) {
             viewModel.setEnemyPrediction("Enemy move: no legal move");
@@ -362,8 +308,8 @@ public final class ChessPieceSystem extends EntitySystem {
         predictionSourceMarker = null;
     }
 
-    private Entity findThreateningPiece(int column, int row, Entity capturedPiece) {
-        Position position = createEnginePosition(column, row, capturedPiece);
+    private Entity findThreateningPiece(int column, int row) {
+        Position position = createEnginePosition(column, row, null);
         int targetSquare = row * BOARD_SIZE + column;
         for (Move move : position.legalMoves(Side.BLACK)) {
             if (move.to() == targetSquare) return pieceAt(move.fromFile(), move.fromRank());
@@ -385,7 +331,7 @@ public final class ChessPieceSystem extends EntitySystem {
                 for (int column = 0; column < BOARD_SIZE; column++) {
                     if (Math.abs(column - originColumn) + Math.abs(row - originRow) != distance) continue;
                     if (pieceAt(column, row) != null) continue;
-                    if (requireSafe && findThreateningPiece(column, row, null) != null) continue;
+                    if (requireSafe && findThreateningPiece(column, row) != null) continue;
                     return new Square(column, row);
                 }
             }
@@ -434,17 +380,18 @@ public final class ChessPieceSystem extends EntitySystem {
     }
 
     private void moveEntity(Entity entity, int column, int row) {
-        Physic physic = Physic.MAPPER.get(entity);
-        Body body = physic.getBody();
-        Transform transform = Transform.MAPPER.get(entity);
         target.set(boardLeft + column * CELL_SIZE, boardBottom + row * CELL_SIZE);
-        delta.set(target).sub(transform.getPosition());
-        Vector2 position = body.getPosition();
-        body.setTransform(position.x + delta.x, position.y + delta.y, body.getAngle());
-        body.setLinearVelocity(0f, 0f);
-        body.setAngularVelocity(0f);
-        physic.getPrevPosition().set(body.getPosition());
-        transform.getPosition().set(body.getPosition());
+        BoardMotion.move(entity, target);
+    }
+
+    public void awardLife() {
+        lives++;
+        viewModel.setLives(lives);
+    }
+
+    public void resetLives() {
+        lives = 2;
+        viewModel.setLives(lives);
     }
 
     private Vector2 entityCenter(Entity entity) {

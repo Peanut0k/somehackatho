@@ -16,12 +16,14 @@ public class KeyboardController extends InputAdapter {
         Map.entry(Input.Keys.A, Command.LEFT),
         Map.entry(Input.Keys.D, Command.RIGHT),
         Map.entry(Input.Keys.Q, Command.CAPTURE_LEFT),
-        Map.entry(Input.Keys.E, Command.CAPTURE_RIGHT),
+        Map.entry(Input.Keys.R, Command.CAPTURE_RIGHT),
+        Map.entry(Input.Keys.E, Command.INTERACT),
         Map.entry(Input.Keys.UP, Command.UP),
         Map.entry(Input.Keys.DOWN, Command.DOWN),
         Map.entry(Input.Keys.LEFT, Command.LEFT),
         Map.entry(Input.Keys.RIGHT, Command.RIGHT),
         Map.entry(Input.Keys.SPACE, Command.SELECT),
+        Map.entry(Input.Keys.ENTER, Command.SELECT),
         Map.entry(Input.Keys.ESCAPE, Command.CANCEL)
     );
 

@@ -92,10 +92,6 @@ public class PhysicSystem extends IteratingSystem implements EntityListener, Con
 
     @Override
     public void entityRemoved(Entity entity) {
-        // !!! Important !!!
-        // This does not work if the Physic component gets removed from an entity
-        // because the component is no longer accessible here.
-        // This ONLY works when an entity with a Physic component gets removed entirely from the engine.
         Physic physic = Physic.MAPPER.get(entity);
         if (physic != null) {
             Body body = physic.getBody();
@@ -137,6 +133,21 @@ public class PhysicSystem extends IteratingSystem implements EntityListener, Con
 
     @Override
     public void endContact(Contact contact) {
+        Fixture fixtureA = contact.getFixtureA();
+        Object userDataA = fixtureA.getBody().getUserData();
+        Fixture fixtureB = contact.getFixtureB();
+        Object userDataB = fixtureB.getBody().getUserData();
+        if (!(userDataA instanceof Entity entityA) || !(userDataB instanceof Entity entityB)) return;
+        clearPlayerTriggerContact(entityA, entityB);
+        clearPlayerTriggerContact(entityB, entityA);
+    }
+
+    private static void clearPlayerTriggerContact(Entity triggerEntity, Entity playerEntity) {
+        Trigger trigger = Trigger.MAPPER.get(triggerEntity);
+        if (trigger != null && Player.MAPPER.get(playerEntity) != null
+            && trigger.getTriggeringEntity() == playerEntity) {
+            trigger.setTriggeringEntity(null);
+        }
     }
 
     @Override

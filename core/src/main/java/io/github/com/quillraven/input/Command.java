@@ -7,6 +7,7 @@ public enum Command {
     UP,
     CAPTURE_LEFT,
     CAPTURE_RIGHT,
+    INTERACT,
     SELECT,
     CANCEL
 }
