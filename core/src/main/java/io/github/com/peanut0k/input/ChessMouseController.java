@@ -8,6 +8,7 @@ import io.github.com.peanut0k.system.ChessDuelSystem;
 import io.github.com.peanut0k.system.ChessPieceSystem;
 
 import java.util.function.Predicate;
+import java.util.function.BooleanSupplier;
 
 public final class ChessMouseController extends InputAdapter {
     private final Viewport viewport;
@@ -16,22 +17,26 @@ public final class ChessMouseController extends InputAdapter {
     private final Predicate<Vector2> onHelpClick;
     private final Predicate<Vector2> onAbilityClick;
     private final Predicate<Vector2> onHubClick;
+    private final BooleanSupplier pauseMenuVisible;
 
     public ChessMouseController(Viewport viewport, ChessDuelSystem chessDuelSystem,
                                 ChessPieceSystem chessPieceSystem,
                                 Predicate<Vector2> onHelpClick,
                                 Predicate<Vector2> onAbilityClick,
-                                Predicate<Vector2> onHubClick) {
+                                Predicate<Vector2> onHubClick,
+                                BooleanSupplier pauseMenuVisible) {
         this.viewport = viewport;
         this.chessDuelSystem = chessDuelSystem;
         this.chessPieceSystem = chessPieceSystem;
         this.onHelpClick = onHelpClick;
         this.onAbilityClick = onAbilityClick;
         this.onHubClick = onHubClick;
+        this.pauseMenuVisible = pauseMenuVisible;
     }
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        if (pauseMenuVisible.getAsBoolean()) return false;
         if (button == Input.Buttons.LEFT
             && onHelpClick.test(new Vector2(screenX, screenY))) return true;
         Vector2 worldPosition = viewport.unproject(new Vector2(screenX, screenY));
@@ -54,6 +59,7 @@ public final class ChessMouseController extends InputAdapter {
 
     @Override
     public boolean mouseMoved(int screenX, int screenY) {
+        if (pauseMenuVisible.getAsBoolean()) return false;
         if (!chessDuelSystem.isActive()) return false;
         Vector2 worldPosition = viewport.unproject(new Vector2(screenX, screenY));
         chessDuelSystem.handleMouseMove(worldPosition.x, worldPosition.y);

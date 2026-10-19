@@ -6,10 +6,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import io.github.com.peanut0k.system.ChessDuelAbility;
@@ -20,9 +22,12 @@ public final class GameView extends View<GameViewModel> {
     private static final Color DISABLED_ABILITY_COLOR = new Color(0.42f, 0.39f, 0.40f, 1f);
 
     private final InfernalUi infernalUi;
+    private final Runnable restartAction;
+    private final Runnable quitAction;
     private final Table livesTable = new Table();
     private final Table resultToast = new Table();
     private final Table abilityBar = new Table();
+    private final Table pauseOverlay = new Table();
     private final Table[] abilityButtons = new Table[ChessDuelAbility.values().length];
     private final Label[] abilityLabels = new Label[ChessDuelAbility.values().length];
     private Table controlsPanel;
@@ -40,9 +45,12 @@ public final class GameView extends View<GameViewModel> {
     private final Vector3 projectedPosition = new Vector3();
     private final Vector2 stagePosition = new Vector2();
 
-    public GameView(Stage stage, Skin skin, GameViewModel viewModel, InfernalUi infernalUi) {
+    public GameView(Stage stage, Skin skin, GameViewModel viewModel, InfernalUi infernalUi,
+                    Runnable restartAction, Runnable quitAction) {
         super(stage, skin, viewModel);
         this.infernalUi = infernalUi;
+        this.restartAction = restartAction;
+        this.quitAction = quitAction;
         initializeUI();
         updateLives(viewModel.getLives());
     }
@@ -128,6 +136,46 @@ public final class GameView extends View<GameViewModel> {
         arenaResultLabel.setAlignment(Align.center);
         arenaResultLabel.setVisible(false);
         addActor(arenaResultLabel);
+
+        pauseOverlay.setFillParent(true);
+        pauseOverlay.setTouchable(Touchable.enabled);
+        pauseOverlay.center();
+        Table pausePanel = new Table();
+        pausePanel.setBackground(infernalUi.panel());
+        pausePanel.pad(8f);
+        Label pauseTitle = new Label("GAME MENU", skin, "small");
+        pauseTitle.setFontScale(0.38f);
+        pauseTitle.setColor(InfernalUi.GOLD);
+        pausePanel.add(pauseTitle).padBottom(7f).row();
+        TextButton restartButton = createPauseButton("Restart Game", restartAction);
+        TextButton quitButton = createPauseButton("Quit to Desktop", quitAction);
+        pausePanel.add(restartButton).width(112f).height(22f).padBottom(4f).row();
+        pausePanel.add(quitButton).width(112f).height(22f);
+        Label resumeHint = new Label("ESC to resume", skin, "small");
+        resumeHint.setFontScale(0.22f);
+        resumeHint.setColor(InfernalUi.PALE);
+        pausePanel.row();
+        pausePanel.add(resumeHint).padTop(5f);
+        pauseOverlay.add(pausePanel);
+        pauseOverlay.setVisible(false);
+        addActor(pauseOverlay);
+    }
+
+    private TextButton createPauseButton(String text, Runnable action) {
+        TextButton.TextButtonStyle style = new TextButton.TextButtonStyle(
+            skin.get(TextButton.TextButtonStyle.class));
+        style.up = infernalUi.button();
+        style.down = infernalUi.selectedButton();
+        style.over = infernalUi.selectedButton();
+        TextButton button = new TextButton(text, style);
+        button.getLabel().setFontScale(0.28f);
+        button.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                action.run();
+            }
+        });
+        return button;
     }
 
     @Override
@@ -327,6 +375,14 @@ public final class GameView extends View<GameViewModel> {
         arenaResultLabel.setVisible(false);
     }
 
+    public void setPauseMenuVisible(boolean visible) {
+        pauseOverlay.setVisible(visible);
+    }
+
+    public boolean isPauseMenuVisible() {
+        return pauseOverlay.isVisible();
+    }
+
     @Override
     public void act(float delta) {
         super.act(delta);
@@ -350,6 +406,7 @@ public final class GameView extends View<GameViewModel> {
     public void resize() {
         positionControlsPanel();
         positionAbilityBar();
+        pauseOverlay.setFillParent(true);
         if (resultToast.isVisible()) {
             resultToast.setPosition(
                 (stage.getWidth() - resultToast.getWidth()) * 0.5f,

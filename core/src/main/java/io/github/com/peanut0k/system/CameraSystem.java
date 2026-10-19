@@ -29,7 +29,7 @@ public class CameraSystem extends IteratingSystem {
         super(Family.all(CameraFollow.class, Transform.class).get());
         this.camera = camera;
         this.targetPosition = new Vector2();
-        this.defaultZoom = camera.zoom;
+        this.defaultZoom = GdxGame.CAMERA_ZOOM;
     }
 
     /**

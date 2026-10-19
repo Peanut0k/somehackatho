@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class GdxGame extends Game {
-    public static final float WORLD_HEIGHT = 9f;
+    public static final float WORLD_HEIGHT = 10f;
     public static final float WORLD_WIDTH = 16f;
     public static final float UNIT_SCALE = 1f;
     public static final float CAMERA_ZOOM = 20f;
@@ -86,9 +86,10 @@ public class GdxGame extends Game {
 
     public void restartGame() {
         Screen previousGame = screenCache.get(GameScreen.class);
-        if (previousGame != null) previousGame.dispose();
-        addScreen(new GameScreen(this));
+        GameScreen replacement = new GameScreen(this);
+        addScreen(replacement);
         setScreen(GameScreen.class);
+        if (previousGame != null) previousGame.dispose();
     }
 
     @Override

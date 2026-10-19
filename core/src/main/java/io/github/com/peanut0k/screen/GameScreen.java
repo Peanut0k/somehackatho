@@ -6,6 +6,7 @@ import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
@@ -77,6 +78,7 @@ public final class GameScreen extends ScreenAdapter {
     private final LightingSystem lightingSystem;
     private final PhysicsDebugSystem physicsDebugSystem;
     private final KeyboardController keyboardController;
+    private final InputAdapter pauseMenuController;
     private final InputAdapter physicsDebugController;
     private final InputAdapter resultKeyboardController;
     private final AudioService audioService;
@@ -132,6 +134,23 @@ public final class GameScreen extends ScreenAdapter {
         entityConfigurator = new LdtkAshleyConfigurator(engine, physicsWorld, game.getAssetService(),
             lightingSystem.getRayHandler());
         keyboardController = new KeyboardController(GameControllerState.class, engine, null);
+        pauseMenuController = new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                if (keycode == Input.Keys.ESCAPE) {
+                    boolean opening = !gameView.isPauseMenuVisible();
+                    if (opening) keyboardController.setActiveState(GameControllerState.class);
+                    gameView.setPauseMenuVisible(opening);
+                    return true;
+                }
+                return gameView.isPauseMenuVisible();
+            }
+
+            @Override
+            public boolean keyUp(int keycode) {
+                return gameView.isPauseMenuVisible();
+            }
+        };
         resultKeyboardController = new InputAdapter() {
             @Override
             public boolean keyDown(int keycode) {
@@ -148,10 +167,12 @@ public final class GameScreen extends ScreenAdapter {
         triggerSystem = new TriggerSystem(this::requestPawnArenaEntry, this::onChallengerChanged,
             this::onArenaPortalChanged);
         controllerSystem = new ControllerSystem(chessPieceSystem, chessDuelSystem, this::handleInteraction);
-        gameView = new GameView(stage, skin, viewModel, infernalUi);
+        gameView = new GameView(stage, skin, viewModel, infernalUi,
+            () -> Gdx.app.postRunnable(game::restartGame), () -> Gdx.app.exit());
         mouseController = new ChessMouseController(
             game.getViewport(), chessDuelSystem, chessPieceSystem,
-            this::handleHelpClick, this::handleAbilityClick, this::handleHubClick);
+            this::handleHelpClick, this::handleAbilityClick, this::handleHubClick,
+            gameView::isPauseMenuVisible);
 
         engine.addSystem(chessPieceSystem);
         engine.addSystem(new PhysicMoveSystem());
@@ -170,7 +191,8 @@ public final class GameScreen extends ScreenAdapter {
     @Override
     public void show() {
         game.setInputProcessors(
-            physicsDebugController, mouseController, stage, resultKeyboardController, keyboardController);
+            pauseMenuController, physicsDebugController, mouseController, stage,
+            resultKeyboardController, keyboardController);
         keyboardController.setActiveState(GameControllerState.class);
         stage.addActor(gameView);
 
@@ -283,26 +305,15 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void handleCombatFinished(boolean victory) {
-        if (!PAWN_ARENA_LEVEL.equals(activeLevel) || transitionPending) return;
+        if (!PAWN_ARENA_LEVEL.equals(activeLevel) || transitionPending || arenaResultPending) return;
         finishBoardMotions();
         gameView.setArenaActive(false);
-        arenaResultPending = false;
-        transitionPending = true;
-        try {
-            if (victory) {
-                gameView.showResultMessage("Victory! Arena restarting.");
-                chessPieceSystem.resetLives();
-                changeLevel(PAWN_ARENA_LEVEL);
-            } else {
-                defeatedChallengers.clear();
-                chessPieceSystem.resetProgression();
-                gameView.hideArenaResult();
-                gameView.showResultMessage("Defeated. Returning to your spawn.");
-                changeLevel(OPEN_WORLD_LEVEL);
-            }
-        } finally {
-            transitionPending = false;
-        }
+        arenaResultWasVictory = victory;
+        arenaResultPending = true;
+        gameView.showArenaResult(victory
+            ? "ARENA VICTORY\nPress any key to return to hub"
+            : "ARENA DEFEAT\nPress any key to return to hub");
+        gameView.setPauseMenuVisible(true);
     }
 
     private void dismissResultWithKeyboard() {
@@ -310,9 +321,16 @@ public final class GameScreen extends ScreenAdapter {
             arenaResultPending = false;
             transitionPending = true;
             gameView.hideArenaResult();
+            gameView.setPauseMenuVisible(false);
             try {
+                if (arenaResultWasVictory) {
+                    chessPieceSystem.resetLives();
+                } else {
+                    defeatedChallengers.clear();
+                    chessPieceSystem.resetProgression();
+                    chessPieceSystem.resetLives();
+                }
                 changeLevel(OPEN_WORLD_LEVEL);
-                if (!arenaResultWasVictory) chessPieceSystem.resetLives();
             } finally {
                 transitionPending = false;
             }
@@ -523,7 +541,7 @@ public final class GameScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
-        if (arenaResultPending || duelResultPending) {
+        if (arenaResultPending || duelResultPending || gameView.isPauseMenuVisible()) {
             engine.getSystem(RenderSystem.class).update(0f);
             lightingSystem.update(0f);
         } else {
