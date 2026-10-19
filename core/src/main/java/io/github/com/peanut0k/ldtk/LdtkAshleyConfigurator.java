@@ -166,7 +166,7 @@ public final class LdtkAshleyConfigurator implements Disposable {
 
     private void createChessChallenger(LdtkMap.EntityInstance instance) {
         boolean merchant = "kupec".equalsIgnoreCase(instance.identifier());
-        String name = instance.getString("challengerName", merchant ? "The Merchant" : instance.identifier());
+        String name = instance.getString("challengerName", merchant ? "Hádankář" : instance.identifier());
         String challengerId = instance.getString("challengerId",
             merchant ? instance.iid() : name);
 
