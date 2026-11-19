@@ -27,9 +27,16 @@ import io.github.com.peanut0k.input.Command;
 import io.github.com.peanut0k.ldtk.LdtkMap;
 import io.github.com.peanut0k.screen.ChessPieceFactory;
 import io.github.com.peanut0k.ui.model.GameViewModel;
+import io.github.com.peanut0k.asset.SoundAsset;
+import io.github.com.peanut0k.audio.AudioService;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public final class ChessPieceSystem extends EntitySystem {
@@ -41,6 +48,9 @@ public final class ChessPieceSystem extends EntitySystem {
     private final TextureRegion predictionRegion;
     private final Consumer<Boolean> onCombatFinished;
     private final ChessEngine enemyEngine = new ChessEngine();
+    private final ChessEngine predictionEngine = new ChessEngine();
+    private final ExecutorService aiExecutor;
+    private final AudioService audioService;
     private final Vector2 target = new Vector2();
     private final List<Entity> mouseDestinationMarkers = new ArrayList<>();
     private ImmutableArray<Entity> pieces;
@@ -52,7 +62,7 @@ public final class ChessPieceSystem extends EntitySystem {
     private boolean lostLifeThisTurn;
     private boolean enemyTurnPending;
     private float enemyMoveDelay;
-    private int enemySearchDepth = 3;
+    private int enemySearchDepth = 2;
     private Entity pendingEnemyTurnPlayer;
     private Entity pendingCapturedPiece;
     private int lives = 2;
@@ -68,15 +78,30 @@ public final class ChessPieceSystem extends EntitySystem {
     private boolean doubleMoveEarned;
     private boolean doubleMoveAvailable;
     private int doubleMoveActionsRemaining;
+    private int arenaScore;
+    private int arenaCombo;
+    private boolean tempoShield;
+    private boolean tempoShieldEarned;
+    private Future<Move> predictionFuture;
+    private int predictionPlayerColumn;
+    private int predictionPlayerRow;
 
     public ChessPieceSystem(
         GameViewModel viewModel,
         TextureRegion predictionRegion,
-        Consumer<Boolean> onCombatFinished
+        Consumer<Boolean> onCombatFinished,
+        AudioService audioService
     ) {
         this.viewModel = viewModel;
         this.predictionRegion = predictionRegion;
         this.onCombatFinished = onCombatFinished;
+        this.audioService = audioService;
+        ThreadFactory threadFactory = runnable -> {
+            Thread thread = new Thread(runnable, "pawn-world-chess-ai");
+            thread.setDaemon(true);
+            return thread;
+        };
+        aiExecutor = Executors.newSingleThreadExecutor(threadFactory);
     }
 
     @Override
@@ -90,6 +115,7 @@ public final class ChessPieceSystem extends EntitySystem {
         clearPredictionMarker();
         clearHintMarker();
         predictedMove = null;
+        cancelPrediction();
         enemyTurnPending = false;
         enemyMoveDelay = 0f;
         pendingEnemyTurnPlayer = null;
@@ -102,7 +128,12 @@ public final class ChessPieceSystem extends EntitySystem {
         hintAvailable = hintEarned;
         doubleMoveAvailable = doubleMoveEarned;
         doubleMoveActionsRemaining = 0;
+        arenaScore = 0;
+        arenaCombo = 0;
+        tempoShield = false;
+        tempoShieldEarned = false;
         viewModel.setLives(lives);
+        viewModel.setArenaStats(arenaScore, arenaCombo, tempoShield);
         viewModel.setGameMessage("Capture the black king.");
         viewModel.setEnemyPrediction("Enemy move: preparing board");
     }
@@ -166,12 +197,17 @@ public final class ChessPieceSystem extends EntitySystem {
     }
 
     public void setOpponentElo(int elo) {
-        enemySearchDepth = Math.min(3, ChessEngine.searchDepthForElo(elo));
+        enemySearchDepth = Math.min(2, ChessEngine.searchDepthForElo(elo));
     }
 
     @Override
     public void update(float deltaTime) {
+        resolvePrediction();
         if (!enemyTurnPending || finished) return;
+        if (predictionFuture != null && !predictionFuture.isDone()) {
+            viewModel.setEnemyPrediction("Opponent is thinking...");
+            return;
+        }
         enemyMoveDelay -= deltaTime;
         if (enemyMoveDelay > 0f) return;
 
@@ -287,11 +323,14 @@ public final class ChessPieceSystem extends EntitySystem {
             boolean capturedKing = ChessPiece.MAPPER.get(capturedPiece).getType() == ChessPiece.Type.KING;
             getEngine().removeEntity(capturedPiece);
             moveEntity(player, nextColumn, nextRow);
+            audioService.playSound(SoundAsset.SWORD_HIT);
             if (capturedKing) {
+                registerCapture(capturedPiece);
                 viewModel.setGameMessage("The black king is captured. You win!");
                 finish(true);
                 return true;
             }
+            registerCapture(capturedPiece);
         } else {
             return false;
         }
@@ -335,7 +374,16 @@ public final class ChessPieceSystem extends EntitySystem {
         if (plannedMove != null && pieceAt(plannedMove.destination.column, plannedMove.destination.row) != null) {
             plannedMove = null;
         }
-        if (plannedMove == null) plannedMove = findEnemyMove(player, capturedPiece);
+        if (plannedMove == null) {
+            clearPredictionMarker();
+            viewModel.setEnemyPrediction("Enemy move: recalculating");
+            updatePrediction();
+            enemyTurnPending = true;
+            enemyMoveDelay = 0.25f;
+            pendingEnemyTurnPlayer = player;
+            pendingCapturedPiece = capturedPiece;
+            return;
+        }
         if (plannedMove == null) {
             viewModel.setEnemyPrediction("Enemy move: no legal move");
             clearPredictionMarker();
@@ -348,6 +396,15 @@ public final class ChessPieceSystem extends EntitySystem {
         int playerRow = cell(playerPosition.y, boardBottom);
         if (plannedMove.destination.column == playerColumn
             && plannedMove.destination.row == playerRow) {
+            if (tempoShield) {
+                tempoShield = false;
+                arenaCombo = 0;
+                moveEntity(plannedMove.piece, plannedMove.source.column, plannedMove.source.row);
+                audioService.playSound(SoundAsset.LIFE_REG);
+                viewModel.setGameMessage("Tempo Shield absorbed the capture!");
+                viewModel.setArenaStats(arenaScore, arenaCombo, false);
+                return;
+            }
             moveEntity(plannedMove.piece, playerColumn, playerRow);
             loseLife(player, playerColumn, playerRow);
             return;
@@ -356,10 +413,13 @@ public final class ChessPieceSystem extends EntitySystem {
     }
 
     private void loseLife(Entity player, int column, int row) {
+        arenaCombo = 0;
+        viewModel.setArenaStats(arenaScore, arenaCombo, tempoShield);
         lives = Math.max(0, lives - 1);
         viewModel.setLives(lives);
         lostLifeThisTurn = true;
         if (lives <= 0) {
+            audioService.playSound(SoundAsset.TRAP);
             viewModel.setGameMessage("You were captured and lost your final life.");
             finish(false);
             return;
@@ -367,6 +427,7 @@ public final class ChessPieceSystem extends EntitySystem {
         Square respawn = findNearestSafeSquare(column, row);
         if (respawn == null) respawn = findNearestEmptySquare(column, row);
         if (respawn != null) moveEntity(player, respawn.column, respawn.row);
+        audioService.playSound(SoundAsset.TRAP);
         viewModel.setGameMessage("Captured immediately! Respawned with " + lives + " lives remaining.");
     }
 
@@ -493,13 +554,54 @@ public final class ChessPieceSystem extends EntitySystem {
 
     private void updatePrediction() {
         if (finished || players == null || players.size() == 0) return;
-        predictedMove = findEnemyMove(players.first(), null);
-        if (predictedMove == null) {
-            viewModel.setEnemyPrediction("Enemy move: no legal move");
+        cancelPrediction();
+        clearPredictionMarker();
+        Entity player = players.first();
+        Vector2 playerPosition = entityCenter(player);
+        predictionPlayerColumn = cell(playerPosition.x, boardLeft);
+        predictionPlayerRow = cell(playerPosition.y, boardBottom);
+        Position snapshot = createEnginePosition(predictionPlayerColumn, predictionPlayerRow, null);
+        int depth = enemySearchDepth;
+        predictionFuture = aiExecutor.submit(() ->
+            predictionEngine.chooseMove(snapshot, Side.BLACK, depth));
+        viewModel.setEnemyPrediction("Enemy move: calculating...");
+    }
+
+    private void resolvePrediction() {
+        if (predictionFuture == null || !predictionFuture.isDone()) return;
+        try {
+            Move move = predictionFuture.get();
+            predictionFuture = null;
+            if (move == null) {
+                predictedMove = null;
+                viewModel.setEnemyPrediction("Enemy move: no legal move");
+                clearPredictionMarker();
+                return;
+            }
+            Entity movedEntity = pieceAt(move.fromFile(), move.fromRank());
+            if (movedEntity == null) {
+                predictedMove = null;
+                clearPredictionMarker();
+                return;
+            }
+            predictedMove = new PlannedMove(
+                movedEntity,
+                new Square(move.fromFile(), move.fromRank()),
+                new Square(move.toFile(), move.toRank()),
+                predictionPlayerColumn,
+                predictionPlayerRow
+            );
+            applyResolvedPrediction(predictedMove);
+        } catch (Exception exception) {
+            predictionFuture = null;
+            predictedMove = null;
+            Gdx.app.error("ChessEngine", "Enemy move prediction failed", exception);
+            viewModel.setEnemyPrediction("Enemy move: calculation unavailable");
             clearPredictionMarker();
-            return;
         }
-        PlannedMove move = predictedMove;
+    }
+
+    private void applyResolvedPrediction(PlannedMove move) {
         ChessPiece.Type type = ChessPiece.MAPPER.get(move.piece).getType();
         String pieceName = type.name().toLowerCase();
         boolean threat = move.destination.column == move.playerColumn && move.destination.row == move.playerRow;
@@ -508,7 +610,12 @@ public final class ChessPieceSystem extends EntitySystem {
         String description = (threat ? "Danger: " : "Next: ") + pieceName + " " + moveName(move);
         viewModel.setEnemyPrediction(description);
         Gdx.app.log("ChessEngine", "Predicted black move " + moveName(move)
-            + " (" + pieceName + ", searched " + enemyEngine.searchedNodes() + " nodes)");
+            + " (" + pieceName + ", searched " + predictionEngine.searchedNodes() + " nodes)");
+    }
+
+    private void cancelPrediction() {
+        if (predictionFuture != null) predictionFuture.cancel(true);
+        predictionFuture = null;
     }
 
     private void updatePredictionMarker(int column, int row, boolean threat) {
@@ -572,7 +679,7 @@ public final class ChessPieceSystem extends EntitySystem {
         int[] left = {-forward[1], forward[0]};
 
         addMouseDestination(column + forward[0], row + forward[1], isEmpty(column + forward[0], row + forward[1]));
-        addMouseDestination(column + left[0], row + left[1], isOpen(column + left[0], row + left[1]));
+        addMouseDestination(column + left[0], row + forward[1] + left[1], isOpen(column + left[0], row + forward[1] + left[1]));
         addMouseDestination(column - left[0], row - left[1], isOpen(column - left[0], row - left[1]));
 
         Entity leftEnemy = pieceAt(column + forward[0] + left[0], row + forward[1] + left[1]);
@@ -714,6 +821,38 @@ public final class ChessPieceSystem extends EntitySystem {
         BoardMotion.move(entity, target);
     }
 
+    private void registerCapture(Entity capturedPiece) {
+        arenaCombo++;
+        if (arenaCombo >= 3 && !tempoShieldEarned) {
+            tempoShield = true;
+            tempoShieldEarned = true;
+            viewModel.setGameMessage("3-capture combo! Tempo Shield charged.");
+        }
+        ChessPiece.Type type = ChessPiece.MAPPER.get(capturedPiece).getType();
+        int baseScore = switch (type) {
+            case PAWN -> 100;
+            case KNIGHT, BISHOP -> 300;
+            case ROOK -> 500;
+            case QUEEN -> 900;
+            case KING -> 2000;
+        };
+        arenaScore += baseScore * Math.min(arenaCombo, 5);
+        viewModel.setArenaStats(arenaScore, arenaCombo, tempoShield);
+    }
+
+    public void shutdownAi() {
+        cancelPrediction();
+        aiExecutor.shutdown();
+        try {
+            if (!aiExecutor.awaitTermination(100, TimeUnit.MILLISECONDS)) {
+                aiExecutor.shutdownNow();
+            }
+        } catch (InterruptedException exception) {
+            aiExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public void awardLife() {
         lives++;
         viewModel.setLives(lives);
@@ -724,6 +863,10 @@ public final class ChessPieceSystem extends EntitySystem {
         viewModel.setLives(lives);
     }
 
+    public int getArenaScore() {
+        return arenaScore;
+    }
+
     public void resetProgression() {
         resetLives();
         hintEarned = false;
@@ -731,6 +874,11 @@ public final class ChessPieceSystem extends EntitySystem {
         doubleMoveEarned = false;
         doubleMoveAvailable = false;
         doubleMoveActionsRemaining = 0;
+        arenaScore = 0;
+        arenaCombo = 0;
+        tempoShield = false;
+        tempoShieldEarned = false;
+        viewModel.setArenaStats(arenaScore, arenaCombo, false);
         clearHintMarker();
     }
 
@@ -774,6 +922,7 @@ public final class ChessPieceSystem extends EntitySystem {
     private void finish(boolean victory) {
         if (finished) return;
         finished = true;
+        cancelPrediction();
         enemyTurnPending = false;
         enemyMoveDelay = 0f;
         pendingEnemyTurnPlayer = null;

@@ -8,11 +8,17 @@ public final class GameViewModel extends ViewModel {
     public static final String LIVES = "lives";
     public static final String CONTROLS = "controls";
     public static final String PUZZLE_MOVES = "puzzleMoves";
+    public static final String ARENA_SCORE = "arenaScore";
+    public static final String ARENA_COMBO = "arenaCombo";
+    public static final String TEMPO_SHIELD = "tempoShield";
 
     private String gameMessage = "Explore the hub, challenge chess players, and find the pawn portal.";
     private String enemyPrediction = "Enemy move: enter the arena";
     private String controls = "HUB  |  WASD / ARROWS MOVE  |  SHIFT SPRINT\nE CHALLENGE OR ENTER ARENA  |  CLICK A DUELIST";
     private String puzzleMoves = "";
+    private String arenaScore = "";
+    private String arenaCombo = "";
+    private boolean tempoShield;
     private int lives = 2;
 
     public GameViewModel(GdxGame game) {
@@ -68,5 +74,22 @@ public final class GameViewModel extends ViewModel {
 
     public String getPuzzleMoves() {
         return puzzleMoves;
+    }
+
+    public void setArenaStats(int score, int combo, boolean tempoShield) {
+        String scoreValue = "SCORE " + score;
+        String comboValue = combo > 1 ? "COMBO x" + combo : "";
+        if (!arenaScore.equals(scoreValue)) {
+            propertyChangeSupport.firePropertyChange(ARENA_SCORE, arenaScore, scoreValue);
+            arenaScore = scoreValue;
+        }
+        if (!arenaCombo.equals(comboValue)) {
+            propertyChangeSupport.firePropertyChange(ARENA_COMBO, arenaCombo, comboValue);
+            arenaCombo = comboValue;
+        }
+        if (this.tempoShield != tempoShield) {
+            propertyChangeSupport.firePropertyChange(TEMPO_SHIELD, this.tempoShield, tempoShield);
+            this.tempoShield = tempoShield;
+        }
     }
 }

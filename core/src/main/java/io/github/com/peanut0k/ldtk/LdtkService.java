@@ -54,15 +54,23 @@ public final class LdtkService implements Disposable {
         Body body = physicsWorld.createBody(bodyDef);
         body.setUserData("environment");
         float tileSize = map.getGridSize() * GdxGame.UNIT_SCALE;
-        for (int x = 0; x < map.getPixelWidth() / map.getGridSize(); x++) {
-            for (int y = 0; y < map.getPixelHeight() / map.getGridSize(); y++) {
-                if (!map.isSolid(x, y)) continue;
-                PolygonShape shape = new PolygonShape();
-                float centerX = (x + 0.5f) * tileSize;
-                float centerY = map.getHeight() - (y + 0.5f) * tileSize;
-                shape.setAsBox(tileSize * 0.5f, tileSize * 0.5f, new Vector2(centerX, centerY), 0f);
-                body.createFixture(shape, 0f).setFriction(0f);
-                shape.dispose();
+        for (int y = 0; y < map.getPixelHeight() / map.getGridSize(); y++) {
+            int startX = -1;
+            for (int x = 0; x <= map.getPixelWidth() / map.getGridSize(); x++) {
+                boolean solid = x < map.getPixelWidth() / map.getGridSize() && map.isSolid(x, y);
+                if (solid && startX < 0) {
+                    startX = x;
+                } else if (!solid && startX >= 0) {
+                    int runLength = x - startX;
+                    PolygonShape shape = new PolygonShape();
+                    float centerX = (startX + runLength * 0.5f) * tileSize;
+                    float centerY = map.getHeight() - (y + 0.5f) * tileSize;
+                    shape.setAsBox(runLength * tileSize * 0.5f, tileSize * 0.5f,
+                        new Vector2(centerX, centerY), 0f);
+                    body.createFixture(shape, 0f).setFriction(0f);
+                    shape.dispose();
+                    startX = -1;
+                }
             }
         }
     }

@@ -30,7 +30,7 @@ public final class TriggerSystem extends IteratingSystem {
         for (Entity entity : getEntities()) {
             Trigger trigger = Trigger.MAPPER.get(entity);
             ChessChallenger chessChallenger = ChessChallenger.MAPPER.get(entity);
-            if (trigger.getTriggeringEntity() != null) {
+            if (trigger.isTriggered()) {
                 if (chessChallenger != null && !chessChallenger.isDefeated() && challenger == null) {
                     challenger = entity;
                 }

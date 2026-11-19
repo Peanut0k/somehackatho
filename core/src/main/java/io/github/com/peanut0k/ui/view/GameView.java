@@ -34,6 +34,8 @@ public final class GameView extends View<GameViewModel> {
     private Label controlsLabel;
     private String displayedControls;
     private Label puzzleMovesLabel;
+    private Label arenaStatsLabel;
+    private Label tempoShieldLabel;
     private Label arenaResultLabel;
     private float toastTimeRemaining;
     private Label directionLabel;
@@ -42,6 +44,8 @@ public final class GameView extends View<GameViewModel> {
     private boolean arenaActive;
     private boolean hintUnlocked;
     private boolean doubleMoveUnlocked;
+    private String arenaScoreText = "";
+    private String arenaComboText = "";
     private final Vector3 projectedPosition = new Vector3();
     private final Vector2 stagePosition = new Vector2();
 
@@ -72,6 +76,16 @@ public final class GameView extends View<GameViewModel> {
         puzzleMovesLabel.setVisible(false);
         status.row();
         status.add(puzzleMovesLabel).left().padTop(2f);
+        arenaStatsLabel = new Label("", skin, "small");
+        arenaStatsLabel.setFontScale(0.28f);
+        arenaStatsLabel.setColor(InfernalUi.GOLD);
+        status.row();
+        status.add(arenaStatsLabel).left().padTop(2f);
+        tempoShieldLabel = new Label("", skin, "small");
+        tempoShieldLabel.setFontScale(0.24f);
+        tempoShieldLabel.setColor(InfernalUi.PALE);
+        status.row();
+        status.add(tempoShieldLabel).left().padTop(2f);
         add(status).top().left().pad(4f).row();
 
         controlsPanel = new Table();
@@ -183,6 +197,9 @@ public final class GameView extends View<GameViewModel> {
         viewModel.onPropertyChange(GameViewModel.LIVES, Integer.class, this::updateLives);
         viewModel.onPropertyChange(GameViewModel.CONTROLS, String.class, this::updateControls);
         viewModel.onPropertyChange(GameViewModel.PUZZLE_MOVES, String.class, this::updatePuzzleMoves);
+        viewModel.onPropertyChange(GameViewModel.ARENA_SCORE, String.class, this::updateArenaScore);
+        viewModel.onPropertyChange(GameViewModel.ARENA_COMBO, String.class, this::updateArenaCombo);
+        viewModel.onPropertyChange(GameViewModel.TEMPO_SHIELD, Boolean.class, this::updateTempoShield);
     }
 
     private void updateLives(int lives) {
@@ -205,6 +222,27 @@ public final class GameView extends View<GameViewModel> {
 
     private void updatePuzzleMoves(String moves) {
         puzzleMovesLabel.setText(moves);
+    }
+
+    private void updateArenaScore(String score) {
+        arenaScoreText = score;
+        refreshArenaStats();
+    }
+
+    private void updateArenaCombo(String combo) {
+        arenaComboText = combo;
+        refreshArenaStats();
+    }
+
+    private void refreshArenaStats() {
+        String text = arenaScoreText;
+        if (!arenaComboText.isBlank()) text += "  " + arenaComboText;
+        arenaStatsLabel.setText(text);
+    }
+
+    private void updateTempoShield(boolean active) {
+        tempoShieldLabel.setText(active ? "TEMPO SHIELD READY" : "");
+        tempoShieldLabel.setColor(active ? InfernalUi.GOLD : InfernalUi.PALE);
     }
 
     public void setArenaActive(boolean active) {

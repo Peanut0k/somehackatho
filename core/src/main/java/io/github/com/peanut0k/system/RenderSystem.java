@@ -73,8 +73,16 @@ public class RenderSystem extends SortedIteratingSystem implements Disposable {
     }
 
     private void drawMapLayerTiles(LdtkMap map, int layerIndex) {
+        float viewWidth = camera.viewportWidth * camera.zoom;
+        float viewHeight = camera.viewportHeight * camera.zoom;
+        float left = camera.position.x - viewWidth * 0.5f;
+        float right = camera.position.x + viewWidth * 0.5f;
+        float bottom = camera.position.y - viewHeight * 0.5f;
+        float top = camera.position.y + viewHeight * 0.5f;
         for (LdtkMap.Tile tile : map.getTiles()) {
-            if (tile.layerIndex() == layerIndex) {
+            if (tile.layerIndex() == layerIndex
+                && tile.x() + tile.size() >= left && tile.x() <= right
+                && tile.y() + tile.size() >= bottom && tile.y() <= top) {
                 batch.draw(tile.region(), tile.x(), tile.y(), tile.size(), tile.size());
             }
         }

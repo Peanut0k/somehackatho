@@ -160,7 +160,7 @@ public final class GameScreen extends ScreenAdapter {
             }
         };
         chessPieceSystem = new ChessPieceSystem(viewModel, chessPieceFactory.getPredictionRegion(),
-            victory -> Gdx.app.postRunnable(() -> handleCombatFinished(victory)));
+            victory -> Gdx.app.postRunnable(() -> handleCombatFinished(victory)), audioService);
         chessPieceSystem.setOpponentElo(game.getOpponentElo());
         chessDuelSystem = new ChessDuelSystem(chessPieceFactory, viewModel, cameraSystem,
             result -> Gdx.app.postRunnable(() -> handleDuelFinished(result)));
@@ -278,6 +278,9 @@ public final class GameScreen extends ScreenAdapter {
 
     private static void configurePlayerCollider(Entity player, boolean pawn) {
         Body body = Physic.MAPPER.get(player).getBody();
+        body.setLinearVelocity(0f, 0f);
+        body.setAngularVelocity(0f);
+        body.setAwake(true);
         while (body.getFixtureList().size > 0) {
             body.destroyFixture(body.getFixtureList().first());
         }
@@ -311,8 +314,10 @@ public final class GameScreen extends ScreenAdapter {
         arenaResultWasVictory = victory;
         arenaResultPending = true;
         gameView.showArenaResult(victory
-            ? "ARENA VICTORY\nPress any key to return to hub"
-            : "ARENA DEFEAT\nPress any key to return to hub");
+            ? "ARENA VICTORY\nSCORE " + chessPieceSystem.getArenaScore()
+                + "\nPress any key to return to hub"
+            : "ARENA DEFEAT\nSCORE " + chessPieceSystem.getArenaScore()
+                + "\nPress any key to return to hub");
         gameView.setPauseMenuVisible(true);
     }
 
@@ -326,8 +331,6 @@ public final class GameScreen extends ScreenAdapter {
                 if (arenaResultWasVictory) {
                     chessPieceSystem.resetLives();
                 } else {
-                    defeatedChallengers.clear();
-                    chessPieceSystem.resetProgression();
                     chessPieceSystem.resetLives();
                 }
                 changeLevel(OPEN_WORLD_LEVEL);
@@ -509,6 +512,7 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void changeLevel(String levelIdentifier) {
+        engine.getSystem(PhysicSystem.class).resetFixedStep();
         LdtkMap nextMap = ldtkService.loadMap(MapAsset.MAIN, levelIdentifier);
         removeCurrentLevelEntities();
         activeLevel = levelIdentifier;
@@ -602,6 +606,7 @@ public final class GameScreen extends ScreenAdapter {
         entityConfigurator.dispose();
         chessPieceFactory.dispose();
         challengerFactory.dispose();
+        chessPieceSystem.shutdownAi();
         infernalUi.dispose();
         stage.dispose();
     }

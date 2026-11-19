@@ -61,7 +61,9 @@ public final class LightingSystem extends IteratingSystem implements EntityListe
     }
 
     public void resize(int width, int height) {
-        rayHandler.resizeFBO(width, height);
+        int lightWidth = Math.min(width, 960);
+        int lightHeight = Math.min(height, 540);
+        rayHandler.resizeFBO(lightWidth, lightHeight);
     }
 
     public RayHandler getRayHandler() {

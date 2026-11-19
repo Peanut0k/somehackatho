@@ -64,6 +64,17 @@ public class PhysicSystem extends IteratingSystem implements EntityListener, Con
         }
     }
 
+    public void resetFixedStep() {
+        accumulator = 0f;
+        for (Entity entity : getEntities()) {
+            Physic physic = Physic.MAPPER.get(entity);
+            Body body = physic.getBody();
+            if (!body.isAwake()) continue;
+            physic.getPrevPosition().set(body.getPosition());
+        }
+        world.clearForces();
+    }
+
     /**
      * Stores previous position for interpolation.
      */
@@ -145,8 +156,8 @@ public class PhysicSystem extends IteratingSystem implements EntityListener, Con
     private static void clearPlayerTriggerContact(Entity triggerEntity, Entity playerEntity) {
         Trigger trigger = Trigger.MAPPER.get(triggerEntity);
         if (trigger != null && Player.MAPPER.get(playerEntity) != null
-            && trigger.getTriggeringEntity() == playerEntity) {
-            trigger.setTriggeringEntity(null);
+            && trigger.getTriggeringEntity() != null) {
+            trigger.removeTriggeringEntity(playerEntity);
         }
     }
 
